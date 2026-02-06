@@ -1,0 +1,12 @@
+find_package(GTest REQUIRED)
+include(GoogleTest)
+
+# test_boundary_conditions（最重要）
+add_executable(test_boundary_conditions test_boundary_conditions.cpp)
+target_link_libraries(test_boundary_conditions PRIVATE eph_spm GTest::gtest_main)
+gtest_discover_tests(test_boundary_conditions)
+
+# test_saliency_polar_map
+add_executable(test_saliency_polar_map test_saliency_polar_map.cpp)
+target_link_libraries(test_saliency_polar_map PRIVATE eph_spm GTest::gtest_main)
+gtest_discover_tests(test_saliency_polar_map)
