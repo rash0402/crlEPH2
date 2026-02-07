@@ -229,8 +229,8 @@ TEST(PhaseAnalyzer, ExportCSV_ValidData_CreatesFile) {
     std::vector<Scalar> phis = {0.05, 0.12, 0.35, 0.52, 0.61};
     std::vector<Scalar> chis = {1.2, 3.5, 8.7, 5.2, 2.1};
 
-    // CSV出力
-    std::string filename = "/private/tmp/claude-502/-Users-igarashi-local-project-workspace-crlEPH2/dae4bfa4-c0a3-4385-b282-1f7370c36ce1/scratchpad/test_phase_export.csv";
+    // CSV出力（/tmpに保存してポータブルに）
+    std::string filename = "/tmp/test_phase_export.csv";
     bool success = PhaseAnalyzer::export_csv(filename, betas, phis, chis);
 
     EXPECT_TRUE(success) << "CSV export should succeed";
