@@ -22,6 +22,10 @@ tech_stack:
 
 ### 1.1 Validation Objectives
 
+> **Note (2026-02-06)**: The validation objectives below reflect the original theoretical plan.
+> The implementation-aligned definitions used for Phase 5 are documented in
+> `.claude/00_project/phase5_proposal.md`. V2 has been achieved in Phase 4.
+
 | ID | Objective | Theorem | Success Criterion |
 |----|-----------|---------|-------------------|
 | V1 | β_c dependency on z, τ_haze | Thm 1 | β_c ∝ 1/(z-1) within 10% |

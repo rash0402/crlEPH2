@@ -15,3 +15,13 @@ gtest_discover_tests(test_beta_sweep)
 add_executable(test_v2_complete test_v2_complete.cpp)
 target_link_libraries(test_v2_complete PRIVATE eph_phase GTest::gtest_main)
 gtest_discover_tests(test_v2_complete)
+
+# test_v4_validation（V4検証 - 長時間数値安定性 + Phase解析統合）
+add_executable(test_v4_validation_phase test_v4_validation.cpp)
+target_link_libraries(test_v4_validation_phase PRIVATE eph_phase eph_swarm eph_agent eph_spm eph_core GTest::gtest_main)
+gtest_discover_tests(test_v4_validation_phase)
+
+# test_v5_validation（V5検証 - 大規模群スケーラビリティ）
+add_executable(test_v5_validation test_v5_validation.cpp)
+target_link_libraries(test_v5_validation PRIVATE eph_phase eph_swarm eph_agent eph_spm eph_core GTest::gtest_main)
+gtest_discover_tests(test_v5_validation PROPERTIES TIMEOUT 300)
