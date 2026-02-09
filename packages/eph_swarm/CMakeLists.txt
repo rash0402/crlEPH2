@@ -7,6 +7,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Eigenの検索
 find_package(Eigen3 REQUIRED NO_MODULE)
 
+# nanoflannの取得（k-d tree近傍探索ライブラリ）
+include(FetchContent)
+FetchContent_Declare(
+    nanoflann
+    GIT_REPOSITORY https://github.com/jlblancoc/nanoflann.git
+    GIT_TAG        v1.5.5
+)
+FetchContent_MakeAvailable(nanoflann)
+
 # インターフェースライブラリ（ヘッダーオンリー）
 add_library(eph_swarm INTERFACE)
 
@@ -20,6 +29,7 @@ target_link_libraries(eph_swarm INTERFACE
     eph_spm
     eph_agent
     Eigen3::Eigen
+    nanoflann::nanoflann
 )
 
 # テスト

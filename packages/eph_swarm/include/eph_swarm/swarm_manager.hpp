@@ -5,13 +5,51 @@
 #include <memory>
 #include <algorithm>
 #include <random>
+#include <cassert>
+#include <cstdint>
 #include <Eigen/Core>
+#include <nanoflann.hpp>
 #include "eph_core/types.hpp"
 #include "eph_core/constants.hpp"
 #include "eph_agent/eph_agent.hpp"
 #include "eph_spm/saliency_polar_map.hpp"
 
 namespace eph::swarm {
+
+/**
+ * @brief nanoflann用のPositionAdaptor
+ *
+ * SwarmManagerのpositions_ベクトルに対するゼロコピーアクセスを提供。
+ * k-d tree構築時にデータコピーを回避し、メモリ効率を最大化します。
+ */
+struct PositionAdaptor {
+    using Scalar = eph::Scalar;
+    using Vec2 = eph::Vec2;
+
+    const std::vector<Vec2>& positions;
+
+    explicit PositionAdaptor(const std::vector<Vec2>& p) : positions(p) {}
+
+    // nanoflann required interface
+    inline size_t kdtree_get_point_count() const {
+        return positions.size();
+    }
+
+    inline Scalar kdtree_get_pt(const size_t idx, const size_t dim) const {
+        assert(dim < 2);
+        return positions[idx][dim];
+    }
+
+    template <class BBOX>
+    bool kdtree_get_bbox(BBOX&) const { return false; }
+};
+
+// k-d tree型定義
+using KDTree = nanoflann::KDTreeSingleIndexAdaptor<
+    nanoflann::L2_Simple_Adaptor<eph::Scalar, PositionAdaptor>,
+    PositionAdaptor,
+    2  // 2D空間
+>;
 
 /**
  * @brief マルチエージェント群管理クラス（Phase 4完全版）
@@ -108,6 +146,9 @@ public:
             positions_[i] = agents_[i]->state().position;
         }
 
+        // Stage 2.5: k-d tree無効化（positions_が更新された）
+        kdtree_dirty_ = true;
+
         // Stage 3: MB破れ適用
         update_effective_haze();
     }
@@ -156,12 +197,23 @@ public:
     }
 
     /**
-     * @brief 近傍検索（k-NN）
+     * @brief 近傍検索（k-NN with k-d tree）
      *
-     * エージェントiの最近傍k個を距離順に返します（Phase 3ではO(N²)実装）。
+     * エージェントiの最近傍k個を距離順に返します。
+     * Phase 6でk-d tree実装に置き換え、O(N²) → O(N log N)に改善。
+     *
+     * ## アルゴリズム
+     * 1. lazy rebuildパターンでk-d treeを構築（必要な場合のみ）
+     * 2. k-NN searchを実行（nanoflann）
+     * 3. 自分自身を除外し、距離順にソート
+     *
+     * ## 計算量
+     * - 構築: O(N log N)（dirty時のみ）
+     * - クエリ: O(k log N)
+     * - 全エージェント: O(N log N + N·k log N) = O(N log N)
      *
      * @param agent_id エージェントID
-     * @return 近傍エージェントIDのリスト（距離順）
+     * @return 近傍エージェントIDのリスト（距離順、最大k個）
      */
     auto find_neighbors(size_t agent_id) const -> std::vector<size_t> {
         std::vector<size_t> neighbors;
@@ -169,33 +221,29 @@ public:
             return neighbors;
         }
 
-        Vec2 pos = positions_[agent_id];
+        // Stage 1: k-d treeの再構築（必要な場合のみ）
+        rebuild_kdtree_if_needed();
 
-        // 距離計算（自分自身を除く）
-        std::vector<std::pair<Scalar, size_t>> distances;
-        distances.reserve(agents_.size() - 1);
+        const Vec2& pos = positions_[agent_id];
+        const int k = avg_neighbors_;
 
-        for (size_t j = 0; j < agents_.size(); ++j) {
-            if (j == agent_id) continue;
-            Scalar dist = (positions_[j] - pos).norm();
-            distances.push_back({dist, j});
-        }
+        // Stage 2: k+1個検索（自分自身を含むため）
+        const size_t search_k = std::min(static_cast<size_t>(k + 1), agents_.size());
+        std::vector<uint32_t> ret_index(search_k);
+        std::vector<Scalar> ret_dist_sq(search_k);
 
-        // k-NN選択（partial_sortで効率化）
-        int k = std::min(avg_neighbors_, static_cast<int>(distances.size()));
-        if (k > 0) {
-            std::partial_sort(
-                distances.begin(),
-                distances.begin() + k,
-                distances.end(),
-                [](const auto& a, const auto& b) {
-                    return a.first < b.first;
-                }
-            );
+        const size_t num_results = kdtree_->knnSearch(
+            pos.data(),
+            search_k,
+            ret_index.data(),
+            ret_dist_sq.data()
+        );
 
-            neighbors.reserve(k);
-            for (int i = 0; i < k; ++i) {
-                neighbors.push_back(distances[i].second);
+        // Stage 3: 結果の取得と自分自身の除外
+        neighbors.reserve(k);
+        for (size_t i = 0; i < num_results && neighbors.size() < static_cast<size_t>(k); ++i) {
+            if (ret_index[i] != static_cast<uint32_t>(agent_id)) {  // 自分自身を除外
+                neighbors.push_back(static_cast<size_t>(ret_index[i]));
             }
         }
 
@@ -256,14 +304,40 @@ public:
     void update_position(size_t agent_id, const Vec2& new_position) {
         if (agent_id < positions_.size()) {
             positions_[agent_id] = new_position;
+            kdtree_dirty_ = true;  // k-d tree無効化
         }
     }
 
 private:
+    /**
+     * @brief k-d tree再構築（lazy rebuild）
+     *
+     * kdtree_dirty_フラグがtrueの場合のみ再構築を実行。
+     * 構築コスト: O(N log N)
+     */
+    void rebuild_kdtree_if_needed() const {
+        if (!kdtree_dirty_) return;
+
+        // PositionAdaptorを再作成（positions_への参照を更新）
+        adaptor_ = std::make_unique<PositionAdaptor>(positions_);
+        kdtree_ = std::make_unique<KDTree>(
+            2,  // dimension
+            *adaptor_,
+            nanoflann::KDTreeSingleIndexAdaptorParams(10)  // max leaf size
+        );
+        kdtree_->buildIndex();
+        kdtree_dirty_ = false;
+    }
+
     std::vector<std::unique_ptr<agent::EPHAgent>> agents_;  // エージェント群
     std::vector<Vec2> positions_;                           // エージェント位置
     Scalar beta_;                                           // MB破れ強度
     int avg_neighbors_;                                     // 平均近傍数
+
+    // k-d tree関連（Phase 6 Priority 1.2: スケーラビリティ改善）
+    mutable std::unique_ptr<PositionAdaptor> adaptor_;      // positions_へのアダプタ
+    mutable std::unique_ptr<KDTree> kdtree_;                // k-d tree（O(N log N)近傍探索）
+    mutable bool kdtree_dirty_ = true;                      // 再構築フラグ
 };
 
 }  // namespace eph::swarm
