@@ -20,3 +20,8 @@ gtest_discover_tests(test_swarm_dynamics)
 add_executable(test_v4_validation test_v4_validation.cpp)
 target_link_libraries(test_v4_validation PRIVATE eph_swarm GTest::gtest_main)
 gtest_discover_tests(test_v4_validation)
+
+# test_neighbor_performance (Phase 6 - k-d tree性能検証)
+add_executable(test_neighbor_performance test_neighbor_performance.cpp)
+target_link_libraries(test_neighbor_performance PRIVATE eph_swarm GTest::gtest_main)
+gtest_discover_tests(test_neighbor_performance)
