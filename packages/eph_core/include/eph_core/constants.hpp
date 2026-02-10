@@ -16,6 +16,15 @@ constexpr int N_R = 12;
 constexpr Scalar DELTA_THETA = 2.0 * PI / N_THETA;
 constexpr Scalar FIELD_OF_VIEW_DEGREES = 270.0;  // Default: 270° forward-facing view
 constexpr Scalar FIELD_OF_VIEW_RADIANS = FIELD_OF_VIEW_DEGREES * PI / 180.0;
+// Note: N_THETA defines the total number of angular bins (12) for a full 360° circle.
+// DELTA_THETA = 360° / N_THETA = 30° per bin.
+// With FIELD_OF_VIEW = 270°, only 9 of 12 bins are within the forward-facing view:
+//   Active bins: θ_idx ∈ [0, 8] covering [-135°, +135°]
+//   Rear blind spot: θ_idx ∈ [9, 11] covering [+135°, -135°] (90° rear arc)
+// The polar map grid remains 12x12 to maintain periodic boundary conditions,
+// but bins outside FOV may be masked/zeroed in visualization (GUI Task 8-9).
+static_assert(FIELD_OF_VIEW_DEGREES > 0.0 && FIELD_OF_VIEW_DEGREES <= 360.0,
+              "Field of view must be in range (0°, 360°]");
 
 // EPH理論定数
 constexpr Scalar BETA_C_TYPICAL = 0.098;  // 臨界点
