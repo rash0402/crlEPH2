@@ -10,6 +10,17 @@
 
 namespace eph::spm {
 
+/**
+ * @brief Saliency Polar Map with configurable field of view
+ *
+ * θ index interpretation (when FIELD_OF_VIEW_DEGREES = 270):
+ *   - θ_idx = 0   → -135° (left edge of FOV)
+ *   - θ_idx = 6   → 0° (forward, agent heading)
+ *   - θ_idx = 11  → +135° (right edge of FOV)
+ *
+ * For 360° FOV: θ ∈ [0°, 360°)
+ * For 270° FOV: θ ∈ [-135°, +135°] centered on heading
+ */
 class SaliencyPolarMap {
 public:
     using Scalar = eph::Scalar;

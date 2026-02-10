@@ -14,6 +14,8 @@ constexpr int N_CHANNELS = 10;
 constexpr int N_THETA = 12;
 constexpr int N_R = 12;
 constexpr Scalar DELTA_THETA = 2.0 * PI / N_THETA;
+constexpr Scalar FIELD_OF_VIEW_DEGREES = 270.0;  // Default: 270° forward-facing view
+constexpr Scalar FIELD_OF_VIEW_RADIANS = FIELD_OF_VIEW_DEGREES * PI / 180.0;
 
 // EPH理論定数
 constexpr Scalar BETA_C_TYPICAL = 0.098;  // 臨界点
