@@ -22,10 +22,13 @@ logger = logging.getLogger(__name__)
 class GlobalViewWidget(QWidget):
     """Widget displaying global agent view using matplotlib"""
 
-    def __init__(self, parent=None, world_size=(10.0, 10.0)):
+    def __init__(self, parent=None, world_size=(40.0, 40.0)):
         super().__init__(parent)
 
         # World size for torus visualization
+        # NOTE: C++ initializes agents in [-10, 10] range, but positions grow unbounded
+        #       Using larger view (40x40) centered at origin for now
+        #       TODO: Implement proper torus wrapping in C++ agent update
         self.world_size = world_size
 
         # Create custom blue→yellow colormap for haze
@@ -56,13 +59,18 @@ class GlobalViewWidget(QWidget):
 
     def _setup_plot(self):
         """Initialize plot appearance"""
-        self.ax.set_xlim(0, self.world_size[0])
-        self.ax.set_ylim(0, self.world_size[1])
+        # Center view at origin since agents spawn in [-10, 10]
+        half_width = self.world_size[0] / 2.0
+        half_height = self.world_size[1] / 2.0
+        self.ax.set_xlim(-half_width, half_width)
+        self.ax.set_ylim(-half_height, half_height)
         self.ax.set_aspect('equal')
         self.ax.set_xlabel('X Position')
         self.ax.set_ylabel('Y Position')
         self.ax.set_title('EPH v2.1 - Global Agent View')
         self.ax.grid(True, alpha=0.3)
+        # Add origin marker
+        self.ax.plot(0, 0, 'k+', markersize=10, markeredgewidth=2, label='Origin')
 
     def update_agents(self, agents: List[Dict[str, Any]]):
         """
