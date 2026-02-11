@@ -13,13 +13,19 @@ echo "EPH v2.1 - Automated Experiment Launcher"
 echo "========================================="
 echo ""
 
-# Step 1: Clean up any existing processes
-echo "[1/4] Cleaning up existing processes..."
+# Step 1: Clean up any existing processes and caches
+echo "[1/5] Cleaning up existing processes..."
 ./scripts/utils/kill_processes.sh
+echo "  ✓ Processes terminated"
+
+echo "  Clearing Python bytecode cache..."
+find src/gui -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+find src/gui -name "*.pyc" -delete 2>/dev/null || true
+echo "  ✓ Cache cleared"
 echo ""
 
 # Step 2: Build C++ server if needed
-echo "[2/4] Checking C++ server build..."
+echo "[2/5] Checking C++ server build..."
 if [ ! -f "build/src/cpp_server/eph_gui_server" ]; then
     echo "  Server not found. Building..."
     ./scripts/build/build_gui_server.sh
@@ -29,7 +35,7 @@ fi
 echo ""
 
 # Step 3: Start C++ server in background
-echo "[3/4] Starting C++ server..."
+echo "[3/5] Starting C++ server..."
 LOG_FILE="logs/server/eph_server_$(date +%Y-%m-%d_%H%M%S).log"
 ./build/src/cpp_server/eph_gui_server > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
@@ -42,7 +48,7 @@ echo ""
 sleep 1
 
 # Step 4: Start Python GUI
-echo "[4/4] Starting Python GUI..."
+echo "[4/5] Starting Python GUI..."
 echo "  Log: GUI output will appear below"
 echo "  Press Ctrl+C to stop both processes"
 echo ""
