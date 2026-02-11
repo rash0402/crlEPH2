@@ -82,10 +82,9 @@ class GlobalViewWidget(QWidget):
                     'haze_mean', 'fatigue', 'efe'
         """
         self.agents_data = agents
-        if agents:
-            logger.info(f"Updating {len(agents)} agents: first agent at ({agents[0]['x']:.2f}, {agents[0]['y']:.2f})")
-        else:
+        if not agents:
             logger.warning("update_agents called with empty agents list")
+            return
         self._render()
 
     def set_world_size(self, width: float, height: float):
@@ -97,7 +96,6 @@ class GlobalViewWidget(QWidget):
     def _render(self):
         """Render all agents to canvas (optimized)"""
         if not self.agents_data:
-            logger.debug("_render: No agents data")
             return
 
         try:
@@ -108,7 +106,6 @@ class GlobalViewWidget(QWidget):
             vy = np.array([a['vy'] for a in self.agents_data])
             haze = np.array([a['haze_mean'] for a in self.agents_data])
             fatigue = np.array([a['fatigue'] for a in self.agents_data])
-            logger.info(f"_render: {len(x)} agents, x range: [{x.min():.2f}, {x.max():.2f}], y range: [{y.min():.2f}, {y.max():.2f}]")
         except KeyError as e:
             logger.warning(f"Missing required agent field {e}, skipping render")
             self.canvas.draw_idle()
