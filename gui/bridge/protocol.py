@@ -11,10 +11,20 @@ from typing import Optional, Dict, List, Any
 MAGIC_NUMBER = 0xEFE20210
 
 
+def calculate_crc32(data: bytes) -> int:
+    """CRC32 checksum matching C++ implementation"""
+    crc = 0xFFFFFFFF
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            crc = (crc >> 1) ^ (0xEDB88320 & (-(crc & 1)))
+    return ~crc & 0xFFFFFFFF
+
+
 class PacketHeader:
     """Binary packet header (24 bytes)"""
     SIZE = 24
-    FORMAT = 'IIIIII'  # 6 uint32_t
+    FORMAT = '<IIIIII'  # 6 uint32_t (little-endian)
 
     @staticmethod
     def parse(data: bytes) -> Optional[Dict[str, int]]:
@@ -35,8 +45,8 @@ class PacketHeader:
 class AgentData:
     """Agent state data (32 bytes per agent)"""
     SIZE = 32
-    # uint16 id, uint16 pad, 7x float32
-    FORMAT = 'HHfffffff'
+    # uint16 id, uint16 pad, 7x float32 (little-endian)
+    FORMAT = '<HHfffffff'
 
     @staticmethod
     def parse(data: bytes) -> Optional[Dict[str, Any]]:
@@ -59,7 +69,7 @@ class AgentData:
 class MetricsData:
     """Metrics data (48 bytes)"""
     SIZE = 48
-    FORMAT = 'dddddd'  # 6 double
+    FORMAT = '<dddddd'  # 6 double (little-endian)
 
     @staticmethod
     def parse(data: bytes) -> Optional[Dict[str, float]]:
@@ -95,7 +105,21 @@ def deserialize_state_packet(data: bytes) -> Optional[Dict[str, Any]]:
     if header is None or header['magic_number'] != MAGIC_NUMBER:
         return None
 
+    # Validate checksum
     num_agents = header['num_agents']
+    expected_payload_size = num_agents * AgentData.SIZE + MetricsData.SIZE
+    if header['data_length'] != expected_payload_size:
+        return None  # Payload size mismatch
+
+    payload_start = PacketHeader.SIZE
+    payload_end = payload_start + header['data_length']
+    if payload_end > len(data):
+        return None
+
+    expected_checksum = calculate_crc32(data[payload_start:payload_end])
+    if header['checksum'] != expected_checksum:
+        return None  # Checksum validation failed
+
     offset = PacketHeader.SIZE
 
     # Parse agents
