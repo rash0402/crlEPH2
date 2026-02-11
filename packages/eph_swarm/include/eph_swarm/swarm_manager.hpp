@@ -11,6 +11,7 @@
 #include <nanoflann.hpp>
 #include "eph_core/types.hpp"
 #include "eph_core/constants.hpp"
+#include "eph_core/math_utils.hpp"
 #include "eph_agent/eph_agent.hpp"
 #include "eph_spm/saliency_polar_map.hpp"
 
@@ -197,23 +198,25 @@ public:
     }
 
     /**
-     * @brief 近傍検索（k-NN with k-d tree）
+     * @brief 近傍検索（k-NN with k-d tree + トーラス距離）
      *
      * エージェントiの最近傍k個を距離順に返します。
      * Phase 6でk-d tree実装に置き換え、O(N²) → O(N log N)に改善。
+     * トーラス世界対応：k-d tree 検索後、トーラス距離で再ソート。
      *
      * ## アルゴリズム
      * 1. lazy rebuildパターンでk-d treeを構築（必要な場合のみ）
-     * 2. k-NN searchを実行（nanoflann）
-     * 3. 自分自身を除外し、距離順にソート
+     * 2. k×2個検索（境界近くの候補を含めるため）
+     * 3. トーラス距離で再計算・ソート
+     * 4. 上位k個を返す
      *
      * ## 計算量
      * - 構築: O(N log N)（dirty時のみ）
-     * - クエリ: O(k log N)
+     * - クエリ: O(2k log N + 2k log(2k)) = O(k log N)
      * - 全エージェント: O(N log N + N·k log N) = O(N log N)
      *
      * @param agent_id エージェントID
-     * @return 近傍エージェントIDのリスト（距離順、最大k個）
+     * @return 近傍エージェントIDのリスト（トーラス距離順、最大k個）
      */
     auto find_neighbors(size_t agent_id) const -> std::vector<size_t> {
         std::vector<size_t> neighbors;
@@ -227,8 +230,8 @@ public:
         const Vec2& pos = positions_[agent_id];
         const int k = avg_neighbors_;
 
-        // Stage 2: k+1個検索（自分自身を含むため）
-        const size_t search_k = std::min(static_cast<size_t>(k + 1), agents_.size());
+        // Stage 2: k×2個検索（境界近くの候補を含めるため）
+        const size_t search_k = std::min(static_cast<size_t>(k * 2 + 1), agents_.size());
         std::vector<uint32_t> ret_index(search_k);
         std::vector<Scalar> ret_dist_sq(search_k);
 
@@ -239,12 +242,32 @@ public:
             ret_dist_sq.data()
         );
 
-        // Stage 3: 結果の取得と自分自身の除外
+        // Stage 3: トーラス距離で再計算
+        std::vector<std::pair<size_t, Scalar>> candidates;
+        candidates.reserve(num_results);
+
+        for (size_t i = 0; i < num_results; ++i) {
+            const size_t neighbor_id = static_cast<size_t>(ret_index[i]);
+            if (neighbor_id == agent_id) continue;  // 自分自身を除外
+
+            // トーラス距離を計算
+            const Scalar torus_dist = math::torus_distance(
+                pos,
+                positions_[neighbor_id],
+                constants::WORLD_SIZE
+            );
+
+            candidates.emplace_back(neighbor_id, torus_dist);
+        }
+
+        // Stage 4: トーラス距離でソート
+        std::sort(candidates.begin(), candidates.end(),
+            [](const auto& a, const auto& b) { return a.second < b.second; });
+
+        // Stage 5: 上位k個を返す
         neighbors.reserve(k);
-        for (size_t i = 0; i < num_results && neighbors.size() < static_cast<size_t>(k); ++i) {
-            if (ret_index[i] != static_cast<uint32_t>(agent_id)) {  // 自分自身を除外
-                neighbors.push_back(static_cast<size_t>(ret_index[i]));
-            }
+        for (size_t i = 0; i < candidates.size() && neighbors.size() < static_cast<size_t>(k); ++i) {
+            neighbors.push_back(candidates[i].first);
         }
 
         return neighbors;
