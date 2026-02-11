@@ -95,7 +95,7 @@ inline uint32_t calculate_crc32(const uint8_t* data, size_t length) {
 /**
  * @brief Serialize StatePacket to binary buffer
  */
-inline std::vector<uint8_t> serialize_state_packet(StatePacket& packet) {
+inline std::vector<uint8_t> serialize_state_packet(const StatePacket& packet) {
     const size_t total_size = sizeof(PacketHeader) +
                               packet.agents.size() * sizeof(AgentData) +
                               sizeof(MetricsData);
@@ -103,7 +103,7 @@ inline std::vector<uint8_t> serialize_state_packet(StatePacket& packet) {
     std::vector<uint8_t> buffer(total_size);
     size_t offset = 0;
 
-    // Copy header
+    // Copy header (will update checksum later)
     std::memcpy(buffer.data() + offset, &packet.header, sizeof(PacketHeader));
     offset += sizeof(PacketHeader);
 
@@ -117,13 +117,14 @@ inline std::vector<uint8_t> serialize_state_packet(StatePacket& packet) {
     std::memcpy(buffer.data() + offset, &packet.metrics, sizeof(MetricsData));
 
     // Calculate checksum of payload (after copying data to buffer)
-    packet.header.checksum = calculate_crc32(
+    PacketHeader header_with_checksum = packet.header;
+    header_with_checksum.checksum = calculate_crc32(
         buffer.data() + sizeof(PacketHeader),
         buffer.size() - sizeof(PacketHeader)
     );
 
     // Re-copy header with updated checksum
-    std::memcpy(buffer.data(), &packet.header, sizeof(PacketHeader));
+    std::memcpy(buffer.data(), &header_with_checksum, sizeof(PacketHeader));
 
     return buffer;
 }

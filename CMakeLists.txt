@@ -20,3 +20,9 @@ add_subdirectory(packages/eph_agent)
 # パッケージ追加（Phase 3）
 add_subdirectory(packages/eph_swarm)
 add_subdirectory(packages/eph_phase)
+
+# UDP GUI Server (optional build)
+option(BUILD_GUI_SERVER "Build UDP GUI Server" ON)
+if(BUILD_GUI_SERVER)
+    add_subdirectory(cpp_server)
+endif()
