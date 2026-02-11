@@ -30,8 +30,10 @@ Thumbs.db
 
 # Outputs (experimental results)
 outputs/
-logs/
-*.log
+
+# Logs (keep directory structure, ignore log files)
+logs/**/*.log
+!logs/*/.gitkeep
 
 # Temporary files
 *.tmp
