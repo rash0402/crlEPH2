@@ -43,6 +43,12 @@ class EPHApplication:
         # Connect parameter changes (Phase 2)
         self.window.parameters_changed.connect(self._on_parameters_changed)
 
+        # Connect playback controls (Phase 2)
+        self.window.playback_play.connect(self._on_play)
+        self.window.playback_pause.connect(self._on_pause)
+        self.window.playback_stop.connect(self._on_stop)
+        self.window.playback_speed_changed.connect(self._on_speed_changed)
+
         logger.info("EPH GUI initialized")
 
     def update(self):
@@ -96,6 +102,26 @@ class EPHApplication:
         success = self.client.send_command(command)
         if not success:
             logger.error("Failed to send parameter command")
+
+    def _on_play(self):
+        """Handle play button"""
+        logger.info("Play clicked")
+        self.client.send_command({'type': 'play'})
+
+    def _on_pause(self):
+        """Handle pause button"""
+        logger.info("Pause clicked")
+        self.client.send_command({'type': 'pause'})
+
+    def _on_stop(self):
+        """Handle stop button"""
+        logger.info("Stop clicked")
+        self.client.send_command({'type': 'stop'})
+
+    def _on_speed_changed(self, speed: float):
+        """Handle speed change"""
+        logger.info(f"Speed changed to {speed}x")
+        self.client.send_command({'type': 'set_speed', 'speed': speed})
 
     def run(self):
         """Run the application"""

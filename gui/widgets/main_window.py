@@ -10,6 +10,7 @@ from typing import List, Dict, Any
 
 from .global_view import GlobalViewWidget
 from .parameter_panel import ParameterPanel
+from .playback_toolbar import PlaybackToolbar
 
 
 class MainWindow(QMainWindow):
@@ -18,11 +19,27 @@ class MainWindow(QMainWindow):
     # Signal for parameter changes
     parameters_changed = pyqtSignal(dict)
 
+    # Playback control signals (Phase 2)
+    playback_play = pyqtSignal()
+    playback_pause = pyqtSignal()
+    playback_stop = pyqtSignal()
+    playback_speed_changed = pyqtSignal(float)
+
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("EPH v2.1 - GUI")
         self.setGeometry(100, 100, 1200, 800)
+
+        # Toolbar: Playback Controls (Phase 2)
+        self.playback_toolbar = PlaybackToolbar()
+        self.addToolBar(self.playback_toolbar)
+
+        # Connect toolbar signals
+        self.playback_toolbar.play_clicked.connect(lambda: self.playback_play.emit())
+        self.playback_toolbar.pause_clicked.connect(lambda: self.playback_pause.emit())
+        self.playback_toolbar.stop_clicked.connect(lambda: self.playback_stop.emit())
+        self.playback_toolbar.speed_changed.connect(lambda s: self.playback_speed_changed.emit(s))
 
         # Central widget: Global View
         self.global_view = GlobalViewWidget()
