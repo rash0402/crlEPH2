@@ -1,7 +1,7 @@
 """Manual test for PlaybackToolbar"""
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow
-from widgets.playback_toolbar import PlaybackToolbar
+from gui.widgets.playback_toolbar import PlaybackToolbar
 
 
 def main():

@@ -1,7 +1,7 @@
 """Manual test for GlobalViewWidget"""
 import sys
 from PyQt6.QtWidgets import QApplication
-from widgets.global_view import GlobalViewWidget
+from gui.widgets.global_view import GlobalViewWidget
 
 def main():
     app = QApplication(sys.argv)

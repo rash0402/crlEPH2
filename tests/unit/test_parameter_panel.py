@@ -1,7 +1,7 @@
 """Manual test for ParameterPanel"""
 import sys
 from PyQt6.QtWidgets import QApplication
-from widgets.parameter_panel import ParameterPanel
+from gui.widgets.parameter_panel import ParameterPanel
 
 def on_params_changed(params):
     print(f"Parameters changed: {params}")
