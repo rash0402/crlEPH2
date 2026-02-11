@@ -40,6 +40,9 @@ class EPHApplication:
         self.frame_count = 0
         self.current_fps = 0.0
 
+        # Connect parameter changes (Phase 2)
+        self.window.parameters_changed.connect(self._on_parameters_changed)
+
         logger.info("EPH GUI initialized")
 
     def update(self):
@@ -79,6 +82,20 @@ class EPHApplication:
 
             self.frame_count = 0
             self.last_fps_update = now
+
+    def _on_parameters_changed(self, params: dict):
+        """Handle parameter changes from UI"""
+        logger.info(f"Sending parameter update: {params}")
+
+        # Send as JSON command
+        command = {
+            'type': 'set_parameters',
+            'parameters': params
+        }
+
+        success = self.client.send_command(command)
+        if not success:
+            logger.error("Failed to send parameter command")
 
     def run(self):
         """Run the application"""

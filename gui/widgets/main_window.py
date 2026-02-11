@@ -4,15 +4,19 @@ Main Window for EPH GUI
 Phase 2: Add Global View Panel
 """
 
-from PyQt6.QtWidgets import QMainWindow, QLabel, QStatusBar
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QMainWindow, QLabel, QStatusBar, QDockWidget
+from PyQt6.QtCore import Qt, pyqtSignal
 from typing import List, Dict, Any
 
 from .global_view import GlobalViewWidget
+from .parameter_panel import ParameterPanel
 
 
 class MainWindow(QMainWindow):
     """Main application window"""
+
+    # Signal for parameter changes
+    parameters_changed = pyqtSignal(dict)
 
     def __init__(self):
         super().__init__()
@@ -23,6 +27,9 @@ class MainWindow(QMainWindow):
         # Central widget: Global View
         self.global_view = GlobalViewWidget()
         self.setCentralWidget(self.global_view)
+
+        # Left dock: Parameter Panel
+        self._create_parameter_dock()
 
         # Status bar
         self.status_bar = QStatusBar()
@@ -44,6 +51,25 @@ class MainWindow(QMainWindow):
         # Packet loss counter (Phase 2)
         self.packet_loss_label = QLabel("Loss: 0")
         self.status_bar.addPermanentWidget(self.packet_loss_label)
+
+    def _create_parameter_dock(self):
+        """Create parameter panel dock widget"""
+        self.parameter_panel = ParameterPanel()
+
+        dock = QDockWidget("Parameters", self)
+        dock.setWidget(self.parameter_panel)
+        dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea |
+                            Qt.DockWidgetArea.RightDockWidgetArea)
+
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+
+        # Connect signal
+        self.parameter_panel.parameters_changed.connect(self._on_parameters_changed)
+
+    def _on_parameters_changed(self, params: Dict[str, Any]):
+        """Parameter panel Apply clicked"""
+        # Forward to main application
+        self.parameters_changed.emit(params)
 
     def update_connection_status(self, connected: bool):
         """Update connection status indicator"""
