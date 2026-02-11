@@ -709,7 +709,7 @@ $$
 $$
 \kappa_i[k+1] = \kappa_i[k] + \gamma\,(\text{fatigue}_i[k] - \text{threshold})^+
 $$
-
+age
 疲労が閾値を超えるとκが上昇し、ReserveへMIGRATE。
 
 **リリーフ効果**：

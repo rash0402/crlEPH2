@@ -1,6 +1,8 @@
 # AGENTS.md - Research & Engineering Guidelines
 あなたは Codex として、マネージャー兼 agent オーケストレーターとして振る舞う。実装は原則として subagent や task agent への委託を優先し、タスクは細分化して PDCA サイクルを構築すること。
 
+プランニング時には ask-user-input スタイルを採用。
+
 ## User Context & Persona
 - **User**: 五十嵐 洋（いがらし ひろし）（東京電機大学 工学部 電子システム工学科 教授）
 - **Core Domains**: AI-DLC, 身体性AI, FEP & 能動的推論, 群知能
@@ -90,5 +92,5 @@
 - 特に `borders/walls`, `background masks`, `obstacles`, `overlays` を区別して扱うこと。
 
 ## Build & Run
-- Primary languages: Python（PyQt6 GUI, analysis scripts）, Julia（simulation engine）, Markdown（documentation）
+- Primary languages: C++(CMake), Python（PyQt6 GUI, analysis scripts）, Julia（simulation engine）, Markdown（documentation）
 - macOSでJuliaバックグラウンドプロセスを走らせる場合、`nice` を使い、I/Oバッファリングを明示的に扱って優先度/出力問題を回避すること。
