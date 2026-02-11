@@ -39,6 +39,7 @@ tmp/
 
 # Local settings
 .claude/settings.local.json
+.serena/
 
 # Jupyter
 .ipynb_checkpoints/
