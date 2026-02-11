@@ -40,6 +40,8 @@ bool UDPServer::init_send_socket(uint16_t port, const std::string& target_host) 
 
     if (inet_pton(AF_INET, target_host.c_str(), &send_addr_.sin_addr) <= 0) {
         last_error_ = "Invalid target host address";
+        close(send_socket_);
+        send_socket_ = -1;
         return false;
     }
 
@@ -54,12 +56,18 @@ bool UDPServer::init_recv_socket(uint16_t port) {
     }
 
     // Set non-blocking
-    set_non_blocking(recv_socket_);
+    if (!set_non_blocking(recv_socket_)) {
+        close(recv_socket_);
+        recv_socket_ = -1;
+        return false;
+    }
 
     // Allow address reuse
     int opt = 1;
     if (setsockopt(recv_socket_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         last_error_ = "Failed to set socket options";
+        close(recv_socket_);
+        recv_socket_ = -1;
         return false;
     }
 
@@ -70,15 +78,25 @@ bool UDPServer::init_recv_socket(uint16_t port) {
 
     if (bind(recv_socket_, (struct sockaddr*)&recv_addr_, sizeof(recv_addr_)) < 0) {
         last_error_ = "Failed to bind receive socket to port " + std::to_string(port);
+        close(recv_socket_);
+        recv_socket_ = -1;
         return false;
     }
 
     return true;
 }
 
-void UDPServer::set_non_blocking(int socket_fd) {
+bool UDPServer::set_non_blocking(int socket_fd) {
     int flags = fcntl(socket_fd, F_GETFL, 0);
-    fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK);
+    if (flags < 0) {
+        last_error_ = "fcntl(F_GETFL) failed";
+        return false;
+    }
+    if (fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+        last_error_ = "fcntl(F_SETFL) failed";
+        return false;
+    }
+    return true;
 }
 
 bool UDPServer::send_state(const StatePacket& packet) {
@@ -92,7 +110,8 @@ bool UDPServer::send_state(const StatePacket& packet) {
                           (struct sockaddr*)&send_addr_, sizeof(send_addr_));
 
     if (sent < 0) {
-        last_error_ = "Failed to send packet: " + std::string(strerror(errno));
+        int saved_errno = errno;
+        last_error_ = "Failed to send packet: " + std::string(strerror(saved_errno));
         return false;
     }
 
@@ -116,7 +135,8 @@ std::optional<nlohmann::json> UDPServer::receive_command() {
             // No data available (non-blocking)
             return std::nullopt;
         }
-        last_error_ = "Failed to receive command: " + std::string(strerror(errno));
+        int saved_errno = errno;
+        last_error_ = "Failed to receive command: " + std::string(strerror(saved_errno));
         return std::nullopt;
     }
 

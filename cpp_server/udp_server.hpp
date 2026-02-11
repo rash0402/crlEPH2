@@ -69,7 +69,7 @@ private:
 
     bool init_send_socket(uint16_t port, const std::string& target_host);
     bool init_recv_socket(uint16_t port);
-    void set_non_blocking(int socket_fd);
+    bool set_non_blocking(int socket_fd);
 };
 
 } // namespace eph::udp
