@@ -51,6 +51,10 @@ class EPHApplication:
             timestep = packet['header']['timestep']
             self.window.update_step(timestep)
 
+            # Update agent visualization (Phase 2)
+            agents = packet['agents']
+            self.window.update_agents(agents)
+
             # Log metrics (Phase 1: debug level)
             metrics = packet['metrics']
             logger.debug(f"φ={metrics['phi']:.4f}, χ={metrics['chi']:.4f}, β={metrics['beta_current']:.3f}")

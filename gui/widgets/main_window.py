@@ -1,11 +1,14 @@
 """
 Main Window for EPH GUI
 
-Phase 1: Minimal window with status bar showing connection state
+Phase 2: Add Global View Panel
 """
 
 from PyQt6.QtWidgets import QMainWindow, QLabel, QStatusBar
 from PyQt6.QtCore import Qt
+from typing import List, Dict, Any
+
+from .global_view import GlobalViewWidget
 
 
 class MainWindow(QMainWindow):
@@ -16,6 +19,10 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("EPH v2.1 - GUI")
         self.setGeometry(100, 100, 1200, 800)
+
+        # Central widget: Global View
+        self.global_view = GlobalViewWidget()
+        self.setCentralWidget(self.global_view)
 
         # Status bar
         self.status_bar = QStatusBar()
@@ -30,11 +37,6 @@ class MainWindow(QMainWindow):
         self.step_label = QLabel("Step: 0")
         self.status_bar.addPermanentWidget(self.step_label)
 
-        # Central widget placeholder
-        central_label = QLabel("EPH v2.1 - Phase 1 Foundation\n\nUDP Connection Ready")
-        central_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setCentralWidget(central_label)
-
     def update_connection_status(self, connected: bool):
         """Update connection status indicator"""
         if connected:
@@ -47,3 +49,7 @@ class MainWindow(QMainWindow):
     def update_step(self, step: int):
         """Update step counter"""
         self.step_label.setText(f"Step: {step}")
+
+    def update_agents(self, agents: List[Dict[str, Any]]):
+        """Update agent visualization"""
+        self.global_view.update_agents(agents)
