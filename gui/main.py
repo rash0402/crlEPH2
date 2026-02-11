@@ -41,15 +41,17 @@ class EPHApplication:
         packet = self.client.receive_state()
 
         if packet:
-            # Update connection status
+            # Update connection status (Phase 1: once connected, stays connected)
             if not self.client.is_connected:
+                self.client.is_connected = True
                 self.window.update_connection_status(True)
+                logger.info("Connected to C++ server")
 
             # Update step counter
             timestep = packet['header']['timestep']
             self.window.update_step(timestep)
 
-            # Log metrics (Phase 1: just print)
+            # Log metrics (Phase 1: debug level)
             metrics = packet['metrics']
             logger.debug(f"φ={metrics['phi']:.4f}, χ={metrics['chi']:.4f}, β={metrics['beta_current']:.3f}")
 
