@@ -8,12 +8,15 @@ Displays all agents in 2D torus world with:
 - Fatigue (size: small=energetic, large=tired)
 """
 
+import logging
 from typing import List, Dict, Any, Optional
 import numpy as np
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.colors import LinearSegmentedColormap
+
+logger = logging.getLogger(__name__)
 
 
 class GlobalViewWidget(QWidget):
@@ -46,6 +49,11 @@ class GlobalViewWidget(QWidget):
         self.agents_data: List[Dict[str, Any]] = []
         self.selected_agent_id: Optional[int] = None
 
+        # Artist storage for reuse (avoid recreating every frame)
+        self.scatter_artist = None
+        self.quiver_artist = None
+        self.colorbar = None
+
     def _setup_plot(self):
         """Initialize plot appearance"""
         self.ax.set_xlim(0, self.world_size[0])
@@ -75,12 +83,8 @@ class GlobalViewWidget(QWidget):
         self.canvas.draw_idle()
 
     def _render(self):
-        """Render all agents to canvas"""
-        self.ax.clear()
-        self._setup_plot()
-
+        """Render all agents to canvas (optimized)"""
         if not self.agents_data:
-            self.canvas.draw_idle()
             return
 
         try:
@@ -92,29 +96,45 @@ class GlobalViewWidget(QWidget):
             haze = np.array([a['haze_mean'] for a in self.agents_data])
             fatigue = np.array([a['fatigue'] for a in self.agents_data])
         except KeyError as e:
-            print(f"Warning: Missing required agent field {e}, skipping render")
+            logger.warning(f"Missing required agent field {e}, skipping render")
             self.canvas.draw_idle()
             return
 
-        # Normalize haze for colormap (0=blue, 1=yellow)
-        # Assume haze range [0, 1], adjust if needed
         colors = haze
-
-        # Map fatigue to marker size (small=0, large=1)
-        # Base size 50, scale by fatigue
         sizes = 50 + 200 * fatigue
 
-        # Plot agents as scatter
-        self.ax.scatter(x, y, c=colors, s=sizes,
-                       cmap=self.haze_cmap, alpha=0.7,
-                       edgecolors='black', linewidths=1)
+        # Update or create scatter plot
+        if self.scatter_artist is None:
+            self.scatter_artist = self.ax.scatter(
+                x, y, c=colors, s=sizes,
+                cmap=self.haze_cmap, alpha=0.7,
+                edgecolors='black', linewidths=1,
+                vmin=0, vmax=1  # Fixed color scale
+            )
 
-        # Plot velocity vectors
-        self.ax.quiver(x, y, vx, vy,
-                      color='red', alpha=0.6,
-                      scale=10, width=0.003)
+            # Add colorbar once
+            if self.colorbar is None:
+                self.colorbar = self.figure.colorbar(
+                    self.scatter_artist, ax=self.ax,
+                    label='Haze Mean'
+                )
+        else:
+            # Reuse existing scatter artist (update data)
+            self.scatter_artist.set_offsets(np.c_[x, y])
+            self.scatter_artist.set_array(colors)
+            self.scatter_artist.set_sizes(sizes)
 
-        # Add colorbar for haze
-        # TODO: Persistent colorbar (reuse across renders)
+        # Update or create quiver plot
+        if self.quiver_artist is None:
+            self.quiver_artist = self.ax.quiver(
+                x, y, vx, vy,
+                color='red', alpha=0.6,
+                scale=10, width=0.003
+            )
+        else:
+            # Reuse quiver (update positions and vectors)
+            self.quiver_artist.set_offsets(np.c_[x, y])
+            self.quiver_artist.set_UVC(vx, vy)
 
+        # Redraw canvas
         self.canvas.draw_idle()
