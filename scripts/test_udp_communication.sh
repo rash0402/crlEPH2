@@ -4,10 +4,13 @@ echo "EPH v2.1 - UDP Communication Test"
 echo "==================================="
 echo ""
 
+# Navigate to project root (script is in scripts/)
+cd "$(dirname "$0")/.." || exit 1
+
 # Check if C++ server is built
 if [ ! -f "build/cpp_server/eph_gui_server" ]; then
     echo "ERROR: C++ server not built"
-    echo "Run: cd build && cmake --build . --target eph_gui_server"
+    echo "Run: ./scripts/build_gui_server.sh"
     exit 1
 fi
 
