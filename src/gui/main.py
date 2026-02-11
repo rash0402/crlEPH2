@@ -68,6 +68,9 @@ class EPHApplication:
 
             # Update agent visualization (Phase 2)
             agents = packet['agents']
+            print(f"DEBUG: Received {len(agents)} agents")  # DEBUG
+            if agents:
+                print(f"DEBUG: First agent: {agents[0]}")  # DEBUG
             self.window.update_agents(agents)
 
             # Log metrics (Phase 1: debug level)
