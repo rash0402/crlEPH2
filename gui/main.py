@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""
+EPH v2.1 GUI - Main Entry Point
+
+Phase 1: Test UDP communication with minimal GUI
+"""
+
+import sys
+import logging
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QTimer
+
+from widgets.main_window import MainWindow
+from bridge.udp_client import UDPClient
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class EPHApplication:
+    """Main application controller"""
+
+    def __init__(self):
+        self.app = QApplication(sys.argv)
+        self.window = MainWindow()
+        self.client = UDPClient()
+
+        # Timer for polling UDP data
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update)
+        self.timer.start(33)  # ~30 FPS
+
+        logger.info("EPH GUI initialized")
+
+    def update(self):
+        """Update loop - called every frame"""
+        packet = self.client.receive_state()
+
+        if packet:
+            # Update connection status
+            if not self.client.is_connected:
+                self.window.update_connection_status(True)
+
+            # Update step counter
+            timestep = packet['header']['timestep']
+            self.window.update_step(timestep)
+
+            # Log metrics (Phase 1: just print)
+            metrics = packet['metrics']
+            logger.debug(f"φ={metrics['phi']:.4f}, χ={metrics['chi']:.4f}, β={metrics['beta_current']:.3f}")
+
+    def run(self):
+        """Run the application"""
+        self.window.show()
+        logger.info("EPH GUI running. Waiting for C++ server...")
+        return self.app.exec()
+
+
+def main():
+    """Entry point"""
+    app = EPHApplication()
+    sys.exit(app.run())
+
+
+if __name__ == '__main__':
+    main()
