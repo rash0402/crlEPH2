@@ -44,8 +44,7 @@ struct AgentData {
     float haze_mean;        // Mean haze value
     float fatigue;          // Fatigue level [0, 1]
     float efe;              // Expected Free Energy
-    uint16_t padding2;      // Alignment padding
-};
+} __attribute__((packed));
 
 /**
  * @brief Metrics data (48 bytes)
