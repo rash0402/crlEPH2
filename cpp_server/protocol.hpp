@@ -116,14 +116,17 @@ inline std::vector<uint8_t> serialize_state_packet(const StatePacket& packet) {
     // Copy metrics
     std::memcpy(buffer.data() + offset, &packet.metrics, sizeof(MetricsData));
 
-    // Calculate checksum of payload (after copying data to buffer)
+    // Calculate checksum and data_length of payload (after copying data to buffer)
     PacketHeader header_with_checksum = packet.header;
+    header_with_checksum.data_length = static_cast<uint32_t>(
+        packet.agents.size() * sizeof(AgentData) + sizeof(MetricsData)
+    );
     header_with_checksum.checksum = calculate_crc32(
         buffer.data() + sizeof(PacketHeader),
         buffer.size() - sizeof(PacketHeader)
     );
 
-    // Re-copy header with updated checksum
+    // Re-copy header with updated checksum and data_length
     std::memcpy(buffer.data(), &header_with_checksum, sizeof(PacketHeader));
 
     return buffer;

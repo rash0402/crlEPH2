@@ -66,8 +66,8 @@ class UDPClient:
         try:
             data, addr = self.recv_socket.recvfrom(65536)  # Max UDP packet size
 
+            # Note: is_connected is managed by main.py to coordinate with GUI updates
             if not self.is_connected:
-                self.is_connected = True
                 logger.info(f"Connected to C++ server at {addr}")
 
             packet = deserialize_state_packet(data)

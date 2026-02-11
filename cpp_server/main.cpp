@@ -116,17 +116,7 @@ int main(int argc, char** argv) {
             packet.metrics.avg_speed = avg_speed;
             packet.metrics.avg_fatigue = avg_fatigue;
 
-            // Calculate checksum
-            auto buffer = udp::serialize_state_packet(packet);
-            packet.header.checksum = udp::calculate_crc32(
-                buffer.data() + sizeof(udp::PacketHeader),
-                buffer.size() - sizeof(udp::PacketHeader)
-            );
-            packet.header.data_length = static_cast<uint32_t>(
-                packet.agents.size() * sizeof(udp::AgentData) + sizeof(udp::MetricsData)
-            );
-
-            // Send
+            // Send state packet (checksum and data_length calculated in serialize)
             if (!server.send_state(packet)) {
                 std::cerr << "Failed to send packet: " << server.get_last_error() << std::endl;
             }
