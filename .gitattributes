@@ -1,0 +1,23 @@
+# EPH v2.1 - Git Large File Storage (LFS) Configuration
+# 大容量ファイルの効率的な管理
+
+# HDF5 experimental data files
+*.h5 filter=lfs diff=lfs merge=lfs -text
+*.hdf5 filter=lfs diff=lfs merge=lfs -text
+
+# Large CSV files in experiments/data/raw/
+experiments/data/raw/**/*.csv filter=lfs diff=lfs merge=lfs -text
+
+# MATLAB data files
+*.mat filter=lfs diff=lfs merge=lfs -text
+
+# Binary simulation dumps
+*.bin filter=lfs diff=lfs merge=lfs -text
+
+# Video recordings (if any)
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.avi filter=lfs diff=lfs merge=lfs -text
+
+# High-resolution PDF figures (publication quality)
+# Only for docs/publications, not all PDFs
+docs/publications/**/figures/*.pdf filter=lfs diff=lfs merge=lfs -text

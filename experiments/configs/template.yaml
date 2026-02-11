@@ -1,0 +1,54 @@
+# EPH v2.1 - Experiment Configuration Template
+# 実験設定テンプレート
+#
+# 使用方法:
+# 1. このファイルをコピー: cp template.yaml your_experiment_name.yaml
+# 2. 下記のパラメータを編集
+# 3. 実験実行: python scripts/experiment/run_experiment.py --config your_experiment_name.yaml
+
+experiment:
+  name: "experiment_name_here"
+  description: |
+    実験の目的、仮説、期待される結果を記述。
+    複数行可能。
+  date: "YYYY-MM-DD"
+  researcher: "Your Name"
+
+parameters:
+  beta: 0.098          # ノイズ強度 [0.01-0.20]
+  eta: 0.01            # 学習率 [0.001-0.1]
+  n_agents: 10         # エージェント数 [5-200]
+  avg_neighbors: 6     # 平均近傍数 [3-10]
+  world_size: [10.0, 10.0]  # ワールドサイズ
+  fov_degrees: 270     # 視野角 [180-360]
+
+simulation:
+  timesteps: 10000     # シミュレーションステップ数
+  dt: 0.1              # 時間刻み
+  warmup_steps: 1000   # ウォームアップ期間
+  save_interval: 10    # 保存間隔
+  random_seed: 42      # 乱数シード（再現性）
+
+output:
+  format: "hdf5"       # hdf5 | csv
+  compression: "gzip"  # gzip | lzf | null
+  save_agent_trajectories: true
+  save_haze_fields: false
+  metrics:
+    - phi
+    - chi
+    - avg_haze
+    - avg_speed
+    - avg_fatigue
+    - efe
+
+logging:
+  level: "INFO"
+  save_to_file: true
+  log_dir: "logs/experiments"
+
+notes: |
+  実験固有のメモをここに記載。
+  - 仮説
+  - 期待される結果
+  - 特記事項

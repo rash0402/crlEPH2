@@ -1,0 +1,118 @@
+# EPH v2.1 - Baseline Experiment Configuration
+# ベースライン実験設定（標準パラメータ）
+#
+# 用途: 新規実験のテンプレート、システム動作確認
+# 作成日: 2026-02-11
+# 研究者: 五十嵐 洋
+
+experiment:
+  name: "baseline"
+  description: |
+    EPH v2.1のベースライン実験設定。
+    標準パラメータでの基本動作を確認。
+  date: "2026-02-11"
+  researcher: "Hiroshi Igarashi"
+
+parameters:
+  # ノイズ強度（相転移の制御パラメータ）
+  beta: 0.098
+  # 理論予測の臨界点付近の値
+  # β < 0.098: 高秩序（整列運動）
+  # β ≈ 0.098: 相転移点
+  # β > 0.098: 無秩序（ランダム運動）
+
+  # 学習率（Haze場の更新速度）
+  eta: 0.01
+  # 範囲: 0.001 - 0.1
+  # 小さいほど緩やかな学習、大きいほど急速な適応
+
+  # エージェント数
+  n_agents: 10
+  # Phase 2 GUI開発では10エージェント
+  # 実験では50-100推奨（統計的有意性）
+
+  # 平均近傍数（k-NNグラフ）
+  avg_neighbors: 6
+  # Active Inference の典型値
+
+  # ワールドサイズ（トーラス世界）
+  world_size: [10.0, 10.0]
+  # [width, height] in arbitrary units
+
+  # 視野角（Field of View）
+  fov_degrees: 270
+  # 前方270度（後方90度は盲点）
+  # Phase 3 SPM可視化で重要
+
+simulation:
+  # シミュレーションステップ数
+  timesteps: 10000
+  # 短時間テスト: 1000-5000
+  # 実験データ取得: 10000-20000
+  # 長時間観測: 50000+
+
+  # 時間刻み
+  dt: 0.1
+  # 数値積分の安定性を考慮
+
+  # ウォームアップ期間（解析から除外）
+  warmup_steps: 1000
+  # 初期過渡状態を除外
+
+  # データ保存間隔
+  save_interval: 10
+  # 10ステップごとに保存（UDP送信間隔と一致）
+
+  # 乱数シード（再現性）
+  random_seed: 42
+  # 固定値で結果を再現可能に
+  # null の場合はランダムシード
+
+output:
+  # 出力形式
+  format: "hdf5"  # または "csv"
+  # HDF5推奨（効率的、大容量データ対応）
+
+  # 圧縮設定
+  compression: "gzip"
+  # gzip: 汎用性高い
+  # lzf: 高速だが圧縮率低い
+
+  # エージェント軌跡の保存
+  save_agent_trajectories: true
+  # 位置・速度の時系列データ
+
+  # Haze場の保存
+  save_haze_fields: false
+  # メモリ節約のためfalse（必要なら true）
+
+  # 保存する評価指標
+  metrics:
+    - phi              # 秩序パラメータ φ(t)
+    - chi              # 感受率 χ(t)
+    - avg_haze         # 平均Haze値
+    - avg_speed        # 平均速度
+    - avg_fatigue      # 平均疲労度
+    - efe              # Expected Free Energy
+
+logging:
+  # ログレベル
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+  # ログファイル保存
+  save_to_file: true
+
+  # ログディレクトリ
+  log_dir: "logs/experiments"
+
+notes: |
+  このベースライン設定は以下の用途に使用:
+  1. システム動作確認
+  2. 新規実験のテンプレート
+  3. パラメータ変更時の比較基準
+
+  実験前のチェックリスト:
+  - [ ] C++サーバーのビルド確認
+  - [ ] Python環境の依存関係確認
+  - [ ] ディスク空き容量確認（最低1GB）
+  - [ ] 実験プロトコルの確認
