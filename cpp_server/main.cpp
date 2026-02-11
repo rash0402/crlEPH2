@@ -44,22 +44,51 @@ int main(int argc, char** argv) {
     const Scalar dt = 0.1;
     const int SEND_INTERVAL = 10;  // Send every 10 steps
 
+    // Playback control state
+    bool is_playing = true;
+    double speed_multiplier = 1.0;
+    int sleep_ms = static_cast<int>(dt * 1000);
+
     while (true) {
         // Check for commands
         auto command = server.receive_command();
         if (command.has_value()) {
             std::cout << "Received command: " << command.value().dump() << std::endl;
 
-            // Handle parameter changes (Phase 1: just log)
-            if (command.value().contains("parameter")) {
-                std::string param = command.value()["parameter"];
-                std::cout << "  Parameter: " << param << std::endl;
+            std::string cmd_type = command.value().value("type", "");
+
+            if (cmd_type == "play") {
+                is_playing = true;
+                std::cout << "  Simulation resumed" << std::endl;
+            }
+            else if (cmd_type == "pause") {
+                is_playing = false;
+                std::cout << "  Simulation paused" << std::endl;
+            }
+            else if (cmd_type == "stop") {
+                is_playing = false;
+                timestep = 0;
+                sequence_num = 0;
+                std::cout << "  Simulation stopped (reset to t=0)" << std::endl;
+                // Note: swarm state not reset (would need SwarmManager.reset())
+            }
+            else if (cmd_type == "set_speed") {
+                speed_multiplier = command.value().value("speed", 1.0);
+                sleep_ms = static_cast<int>(dt * 1000 / speed_multiplier);
+                std::cout << "  Speed set to " << speed_multiplier << "x (sleep=" << sleep_ms << "ms)" << std::endl;
+            }
+            else if (cmd_type == "set_parameters") {
+                auto params = command.value()["parameters"];
+                std::cout << "  Parameters: " << params.dump() << std::endl;
+                // TODO: Apply parameters (Phase 2 deferred)
             }
         }
 
-        // Update simulation
-        swarm.update_all_agents(test_spm, dt);
-        timestep++;
+        // Update simulation (only if playing)
+        if (is_playing) {
+            swarm.update_all_agents(test_spm, dt);
+            timestep++;
+        }
 
         // Send state at intervals
         if (timestep % SEND_INTERVAL == 0) {
@@ -122,8 +151,8 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Sleep for dt (100ms)
-        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(dt * 1000)));
+        // Sleep with speed adjustment
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
     }
 
     return 0;
