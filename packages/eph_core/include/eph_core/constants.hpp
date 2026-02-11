@@ -52,6 +52,12 @@ constexpr Scalar GRADIENT_EPSILON = 1e-4;  // 数値微分ステップ
 constexpr Scalar ACTION_CLIP_MIN = -5.0;   // 行為空間クリッピング
 constexpr Scalar ACTION_CLIP_MAX = 5.0;
 
+// トロイダルワールド境界（全シナリオで採用）
+constexpr Scalar WORLD_MIN = -10.0;        // 世界の最小座標
+constexpr Scalar WORLD_MAX = 10.0;         // 世界の最大座標
+constexpr Scalar WORLD_SIZE = 20.0;        // 世界サイズ (WORLD_MAX - WORLD_MIN)
+static_assert(WORLD_SIZE == WORLD_MAX - WORLD_MIN, "WORLD_SIZE must equal WORLD_MAX - WORLD_MIN");
+
 }  // namespace constants
 }  // namespace eph
 

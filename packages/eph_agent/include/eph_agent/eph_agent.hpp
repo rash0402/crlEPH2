@@ -4,6 +4,7 @@
 #include <Eigen/Core>
 #include "eph_core/types.hpp"
 #include "eph_core/constants.hpp"
+#include "eph_core/math_utils.hpp"
 #include "eph_spm/saliency_polar_map.hpp"
 #include "eph_agent/haze_estimator.hpp"
 #include "eph_agent/action_selector.hpp"
@@ -69,6 +70,13 @@ public:
         // 2. 状態更新
         state_.velocity = new_velocity;
         state_.position += state_.velocity * dt;
+
+        // トーラス境界でラッピング
+        state_.position = math::wrap_position(
+            state_.position,
+            constants::WORLD_MIN,
+            constants::WORLD_MAX
+        );
 
         // 3. 予測誤差計算（簡易版: 速度変化量）
         Scalar velocity_change = (new_velocity - old_velocity).norm();
