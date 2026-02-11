@@ -6,6 +6,9 @@
 #include <cstring>
 #include "eph_core/types.hpp"
 
+// Protocol uses little-endian byte order (host byte order on most modern systems)
+// TODO: Add explicit endianness conversion for cross-platform compatibility
+
 namespace eph::udp {
 
 // Magic number for packet identification: 0xEFE20210 (EPH v2.1, 2021-0)
@@ -29,7 +32,9 @@ struct PacketHeader {
           num_agents(0),
           data_length(0),
           checksum(0) {}
-};
+} __attribute__((packed));
+
+static_assert(sizeof(PacketHeader) == 24, "PacketHeader must be 24 bytes");
 
 /**
  * @brief Agent state data (32 bytes per agent)
@@ -46,6 +51,8 @@ struct AgentData {
     float efe;              // Expected Free Energy
 } __attribute__((packed));
 
+static_assert(sizeof(AgentData) == 32, "AgentData must be 32 bytes");
+
 /**
  * @brief Metrics data (48 bytes)
  */
@@ -56,7 +63,9 @@ struct MetricsData {
     double avg_haze;        // Average haze across agents
     double avg_speed;       // Average speed
     double avg_fatigue;     // Average fatigue
-};
+} __attribute__((packed));
+
+static_assert(sizeof(MetricsData) == 48, "MetricsData must be 48 bytes");
 
 /**
  * @brief Complete state packet
@@ -86,7 +95,7 @@ inline uint32_t calculate_crc32(const uint8_t* data, size_t length) {
 /**
  * @brief Serialize StatePacket to binary buffer
  */
-inline std::vector<uint8_t> serialize_state_packet(const StatePacket& packet) {
+inline std::vector<uint8_t> serialize_state_packet(StatePacket& packet) {
     const size_t total_size = sizeof(PacketHeader) +
                               packet.agents.size() * sizeof(AgentData) +
                               sizeof(MetricsData);
@@ -106,6 +115,15 @@ inline std::vector<uint8_t> serialize_state_packet(const StatePacket& packet) {
 
     // Copy metrics
     std::memcpy(buffer.data() + offset, &packet.metrics, sizeof(MetricsData));
+
+    // Calculate checksum of payload (after copying data to buffer)
+    packet.header.checksum = calculate_crc32(
+        buffer.data() + sizeof(PacketHeader),
+        buffer.size() - sizeof(PacketHeader)
+    );
+
+    // Re-copy header with updated checksum
+    std::memcpy(buffer.data(), &packet.header, sizeof(PacketHeader));
 
     return buffer;
 }
