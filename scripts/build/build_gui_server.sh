@@ -4,8 +4,8 @@ echo "EPH v2.1 - GUI Server Build Script"
 echo "==================================="
 echo ""
 
-# Navigate to project root (script is in scripts/)
-cd "$(dirname "$0")/.." || exit 1
+# Navigate to project root (script is in scripts/build/)
+cd "$(dirname "$0")/../.." || exit 1
 
 # Check if build directory exists
 if [ ! -d "build" ]; then
@@ -38,8 +38,11 @@ fi
 echo ""
 echo "✅ Build successful!"
 echo ""
-echo "Executable location: ./build/cpp_server/eph_gui_server"
+echo "Executable location: ./build/src/cpp_server/eph_gui_server"
 echo ""
-echo "To run the integration test:"
-echo "  ./scripts/test_udp_communication.sh"
+echo "To run the full system:"
+echo "  ./run.sh"
+echo ""
+echo "To run integration tests:"
+echo "  pytest tests/integration/"
 echo ""

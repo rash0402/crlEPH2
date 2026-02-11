@@ -15,14 +15,14 @@ echo ""
 
 # Step 1: Clean up any existing processes
 echo "[1/4] Cleaning up existing processes..."
-./scripts/kill_processes.sh
+./scripts/utils/kill_processes.sh
 echo ""
 
 # Step 2: Build C++ server if needed
 echo "[2/4] Checking C++ server build..."
-if [ ! -f "build/cpp_server/eph_gui_server" ]; then
+if [ ! -f "build/src/cpp_server/eph_gui_server" ]; then
     echo "  Server not found. Building..."
-    ./scripts/build_gui_server.sh
+    ./scripts/build/build_gui_server.sh
 else
     echo "  ✓ Server binary exists"
 fi
@@ -30,10 +30,12 @@ echo ""
 
 # Step 3: Start C++ server in background
 echo "[3/4] Starting C++ server..."
-./build/cpp_server/eph_gui_server > /tmp/eph_server.log 2>&1 &
+LOG_FILE="logs/server/eph_server_$(date +%Y-%m-%d_%H%M%S).log"
+./build/src/cpp_server/eph_gui_server > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 echo "  ✓ C++ server started (PID: $SERVER_PID)"
-echo "    Log: /tmp/eph_server.log"
+echo "    Log: $LOG_FILE"
+ln -sf "$(basename "$LOG_FILE")" logs/server/eph_server_latest.log
 echo ""
 
 # Wait for server to initialize
@@ -66,7 +68,7 @@ cleanup() {
 trap cleanup INT TERM
 
 # Start GUI in foreground
-cd gui || exit 1
+cd src/gui || exit 1
 python3 main.py &
 GUI_PID=$!
 
