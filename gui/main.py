@@ -7,6 +7,7 @@ Phase 1: Test UDP communication with minimal GUI
 
 import sys
 import logging
+import time
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QTimer
 
@@ -34,6 +35,11 @@ class EPHApplication:
         self.timer.timeout.connect(self.update)
         self.timer.start(33)  # ~30 FPS
 
+        # FPS tracking (Phase 2)
+        self.last_fps_update = time.time()
+        self.frame_count = 0
+        self.current_fps = 0.0
+
         logger.info("EPH GUI initialized")
 
     def update(self):
@@ -58,6 +64,21 @@ class EPHApplication:
             # Log metrics (Phase 1: debug level)
             metrics = packet['metrics']
             logger.debug(f"φ={metrics['phi']:.4f}, χ={metrics['chi']:.4f}, β={metrics['beta_current']:.3f}")
+
+        # Update FPS counter (every second)
+        self.frame_count += 1
+        now = time.time()
+        elapsed = now - self.last_fps_update
+        if elapsed >= 1.0:
+            self.current_fps = self.frame_count / elapsed
+            self.window.update_fps(self.current_fps)
+
+            # Update packet loss
+            packet_loss = self.client.lost_packet_count
+            self.window.update_packet_loss(packet_loss)
+
+            self.frame_count = 0
+            self.last_fps_update = now
 
     def run(self):
         """Run the application"""

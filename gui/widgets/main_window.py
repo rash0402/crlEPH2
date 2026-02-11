@@ -37,6 +37,14 @@ class MainWindow(QMainWindow):
         self.step_label = QLabel("Step: 0")
         self.status_bar.addPermanentWidget(self.step_label)
 
+        # FPS counter (Phase 2)
+        self.fps_label = QLabel("FPS: 0.0")
+        self.status_bar.addPermanentWidget(self.fps_label)
+
+        # Packet loss counter (Phase 2)
+        self.packet_loss_label = QLabel("Loss: 0")
+        self.status_bar.addPermanentWidget(self.packet_loss_label)
+
     def update_connection_status(self, connected: bool):
         """Update connection status indicator"""
         if connected:
@@ -53,3 +61,13 @@ class MainWindow(QMainWindow):
     def update_agents(self, agents: List[Dict[str, Any]]):
         """Update agent visualization"""
         self.global_view.update_agents(agents)
+
+    def update_fps(self, fps: float):
+        """Update FPS display"""
+        self.fps_label.setText(f"FPS: {fps:.1f}")
+
+    def update_packet_loss(self, count: int):
+        """Update packet loss display"""
+        color = "red" if count > 0 else "green"
+        self.packet_loss_label.setText(f"Loss: {count}")
+        self.packet_loss_label.setStyleSheet(f"color: {color};")
