@@ -44,8 +44,8 @@ int main(int argc, char** argv) {
     const Scalar dt = 0.1;
     const int SEND_INTERVAL = 10;  // Send every 10 steps
 
-    // Playback control state
-    bool is_playing = true;
+    // Playback control state (start paused, user must press Play)
+    bool is_playing = false;
     double speed_multiplier = 1.0;
     int sleep_ms = static_cast<int>(dt * 1000);
 
