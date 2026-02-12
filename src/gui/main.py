@@ -70,8 +70,9 @@ class EPHApplication:
             agents = packet['agents']
             self.window.update_agents(agents)
 
-            # Log metrics (Phase 1: debug level)
+            # Update metrics display (Phase 2)
             metrics = packet['metrics']
+            self.window.update_metrics(metrics)
             logger.debug(f"φ={metrics['phi']:.4f}, χ={metrics['chi']:.4f}, β={metrics['beta_current']:.3f}")
 
         # Update FPS counter (every second)

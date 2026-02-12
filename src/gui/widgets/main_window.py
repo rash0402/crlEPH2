@@ -69,6 +69,17 @@ class MainWindow(QMainWindow):
         self.packet_loss_label = QLabel("Loss: 0")
         self.status_bar.addPermanentWidget(self.packet_loss_label)
 
+        # Metrics display (Phase 2)
+        self.status_bar.addPermanentWidget(QLabel(" | "))  # Separator
+        self.phi_label = QLabel("φ: -")
+        self.status_bar.addPermanentWidget(self.phi_label)
+        self.chi_label = QLabel("χ: -")
+        self.status_bar.addPermanentWidget(self.chi_label)
+        self.haze_label = QLabel("Haze: -")
+        self.status_bar.addPermanentWidget(self.haze_label)
+        self.beta_label = QLabel("β: -")
+        self.status_bar.addPermanentWidget(self.beta_label)
+
     def _create_parameter_dock(self):
         """Create parameter panel dock widget"""
         self.parameter_panel = ParameterPanel()
@@ -114,3 +125,10 @@ class MainWindow(QMainWindow):
         color = "red" if count > 0 else "green"
         self.packet_loss_label.setText(f"Loss: {count}")
         self.packet_loss_label.setStyleSheet(f"color: {color};")
+
+    def update_metrics(self, metrics: Dict[str, float]):
+        """Update metrics display (φ, χ, avg_haze, β)"""
+        self.phi_label.setText(f"φ: {metrics['phi']:.3f}")
+        self.chi_label.setText(f"χ: {metrics['chi']:.3f}")
+        self.haze_label.setText(f"Haze: {metrics['avg_haze']:.3f}")
+        self.beta_label.setText(f"β: {metrics['beta_current']:.3f}")
