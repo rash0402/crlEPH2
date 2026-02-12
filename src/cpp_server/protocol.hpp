@@ -68,6 +68,22 @@ struct MetricsData {
 static_assert(sizeof(MetricsData) == 48, "MetricsData must be 48 bytes");
 
 /**
+ * @brief Agent detail data (608 bytes)
+ *
+ * Contains SPM (12x12) and neighbor information for selected agent
+ */
+struct AgentDetailData {
+    uint16_t agent_id;       // Selected agent ID
+    uint16_t num_neighbors;  // Number of valid neighbors
+    float spm_data[144];     // SPM 12x12 = 144 floats
+    float velocity_angle;    // Agent heading in radians
+    uint16_t neighbor_ids[6];// Neighbor agent IDs
+    uint16_t padding[6];     // Alignment to 8-byte boundary (6 bytes padding needed)
+} __attribute__((packed));
+
+static_assert(sizeof(AgentDetailData) == 608, "AgentDetailData must be 608 bytes");
+
+/**
  * @brief Complete state packet
  */
 struct StatePacket {

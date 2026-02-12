@@ -87,6 +87,41 @@ class MetricsData:
         }
 
 
+class AgentDetailData:
+    """Agent detail data (608 bytes)"""
+    SIZE = 608
+    # uint16 agent_id, uint16 num_neighbors, 144 floats, float angle, 6 uint16, 6 uint16 padding
+    FORMAT = '<HH144ff6H6H'
+
+    @staticmethod
+    def parse(data: bytes) -> Optional[Dict[str, Any]]:
+        if len(data) < AgentDetailData.SIZE:
+            return None
+
+        values = struct.unpack(AgentDetailData.FORMAT, data[:AgentDetailData.SIZE])
+
+        agent_id = values[0]
+        num_neighbors = values[1]
+        spm_flat = values[2:146]  # 144 floats
+        velocity_angle = values[146]
+        neighbor_ids_raw = values[147:153]  # 6 uint16
+        # values[153:159] are padding, ignored
+
+        # Reshape SPM to 12x12
+        import numpy as np
+        spm_matrix = np.array(spm_flat).reshape((12, 12))
+
+        # Filter valid neighbor IDs
+        neighbor_ids = [nid for nid in neighbor_ids_raw if nid != 0xFFFF][:num_neighbors]
+
+        return {
+            'agent_id': agent_id,
+            'spm': spm_matrix,
+            'velocity_angle': velocity_angle,
+            'neighbor_ids': neighbor_ids
+        }
+
+
 def deserialize_state_packet(data: bytes) -> Optional[Dict[str, Any]]:
     """
     Deserialize binary state packet from C++ server
