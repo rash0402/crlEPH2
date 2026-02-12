@@ -201,7 +201,7 @@ class GlobalViewWidget(QWidget):
 
     def _create_velocity_lines(self, positions: np.ndarray, velocities: np.ndarray) -> np.ndarray:
         """
-        Create line segments for velocity vectors with torus boundary handling
+        Create line segments for velocity vectors with boundary clipping
 
         Args:
             positions: (N, 2) array of agent positions
@@ -218,22 +218,14 @@ class GlobalViewWidget(QWidget):
         # Create endpoints for each velocity vector
         endpoints = positions + velocities * scale
 
-        # Apply torus wrapping to endpoints
-        # If endpoint crosses boundary, wrap it to stay within [-10, 10]
+        # Clip endpoints at world boundaries instead of wrapping
+        # This prevents arrows from extending across the entire world
         world_min = -self.world_size[0] / 2.0
         world_max = self.world_size[0] / 2.0
 
-        # Wrap x coordinates
-        mask_x = endpoints[:, 0] < world_min
-        endpoints[mask_x, 0] += self.world_size[0]
-        mask_x = endpoints[:, 0] > world_max
-        endpoints[mask_x, 0] -= self.world_size[0]
-
-        # Wrap y coordinates
-        mask_y = endpoints[:, 1] < world_min
-        endpoints[mask_y, 1] += self.world_size[1]
-        mask_y = endpoints[:, 1] > world_max
-        endpoints[mask_y, 1] -= self.world_size[1]
+        # Clip x and y coordinates to world boundaries
+        endpoints[:, 0] = np.clip(endpoints[:, 0], world_min, world_max)
+        endpoints[:, 1] = np.clip(endpoints[:, 1], world_min, world_max)
 
         # Interleave start and end points: [start0, end0, start1, end1, ...]
         lines = np.empty((n_agents * 2, 2))
