@@ -23,22 +23,32 @@ logger = logging.getLogger(__name__)
 class GlobalViewWidget(QWidget):
     """Widget displaying global agent view using PyQtGraph"""
 
-    def __init__(self, parent=None, world_size=(40.0, 40.0)):
+    def __init__(self, parent=None, world_size=(20.0, 20.0)):
         super().__init__(parent)
 
         # World size for torus visualization
-        # NOTE: C++ initializes agents in [-10, 10] range, but positions grow unbounded
-        #       Using larger view (40x40) centered at origin for now
-        #       TODO: Implement proper torus wrapping in C++ agent update
+        # Matches C++ constants: WORLD_SIZE=20.0 with range [-10, 10] x [-10, 10]
+        # Torus wrapping is implemented in eph_agent.hpp (wrap_position)
         self.world_size = world_size
 
         # Create PyQtGraph plot widget
         self.plot_widget = pg.PlotWidget()
         self.plot_item = self.plot_widget.getPlotItem()
 
-        # Setup layout
-        layout = QVBoxLayout()
+        # Create colorbar/gradient widget for haze legend
+        self.gradient_widget = pg.GradientWidget(orientation='right')
+        self.gradient_widget.setMaximumWidth(30)
+        # Blue to yellow gradient
+        self.gradient_widget.setColorMap(pg.ColorMap(
+            pos=[0.0, 1.0],
+            color=[(0, 0, 255), (255, 255, 0)]
+        ))
+
+        # Setup layout (horizontal: plot + colorbar)
+        from PyQt6.QtWidgets import QHBoxLayout
+        layout = QHBoxLayout()
         layout.addWidget(self.plot_widget)
+        layout.addWidget(self.gradient_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
@@ -77,15 +87,6 @@ class GlobalViewWidget(QWidget):
             brush=None
         )
         self.plot_item.addItem(origin_marker)
-
-        # Add colorbar (legend for haze)
-        gradient = pg.GradientWidget(orientation='right')
-        gradient.setMaximumWidth(20)
-        # Blue to yellow gradient
-        gradient.setColorMap(pg.ColorMap(
-            pos=[0.0, 1.0],
-            color=[(0, 0, 255), (255, 255, 0)]
-        ))
 
     def update_agents(self, agents: List[Dict[str, Any]]):
         """
@@ -200,7 +201,7 @@ class GlobalViewWidget(QWidget):
 
     def _create_velocity_lines(self, positions: np.ndarray, velocities: np.ndarray) -> np.ndarray:
         """
-        Create line segments for velocity vectors
+        Create line segments for velocity vectors with boundary clipping
 
         Args:
             positions: (N, 2) array of agent positions
@@ -216,6 +217,15 @@ class GlobalViewWidget(QWidget):
 
         # Create endpoints for each velocity vector
         endpoints = positions + velocities * scale
+
+        # Clip endpoints at world boundaries instead of wrapping
+        # This prevents arrows from extending across the entire world
+        world_min = -self.world_size[0] / 2.0
+        world_max = self.world_size[0] / 2.0
+
+        # Clip x and y coordinates to world boundaries
+        endpoints[:, 0] = np.clip(endpoints[:, 0], world_min, world_max)
+        endpoints[:, 1] = np.clip(endpoints[:, 1], world_min, world_max)
 
         # Interleave start and end points: [start0, end0, start1, end1, ...]
         lines = np.empty((n_agents * 2, 2))
