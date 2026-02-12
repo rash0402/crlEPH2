@@ -4,6 +4,7 @@ Main Window for EPH GUI
 Phase 2: Add Global View Panel
 """
 
+import logging
 from PyQt6.QtWidgets import QMainWindow, QLabel, QStatusBar, QDockWidget
 from PyQt6.QtCore import Qt, pyqtSignal
 from typing import List, Dict, Any
@@ -11,6 +12,8 @@ from typing import List, Dict, Any
 from .global_view import GlobalViewWidget
 from .parameter_panel import ParameterPanel
 from .playback_toolbar import PlaybackToolbar
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -44,6 +47,9 @@ class MainWindow(QMainWindow):
         # Central widget: Global View
         self.global_view = GlobalViewWidget()
         self.setCentralWidget(self.global_view)
+
+        # Connect agent selection signal
+        self.global_view.agent_selected.connect(self._on_agent_selected)
 
         # Left dock: Parameter Panel
         self._create_parameter_dock()
@@ -79,6 +85,12 @@ class MainWindow(QMainWindow):
         self.status_bar.addPermanentWidget(self.haze_label)
         self.beta_label = QLabel("β: -")
         self.status_bar.addPermanentWidget(self.beta_label)
+
+    def _on_agent_selected(self, agent_id: int):
+        """Handle agent selection from global view"""
+        logger.info(f"Agent {agent_id} selected")
+        # TODO: Update detail panel (Task 3)
+        # TODO: Send select_agent command to C++ (Task 2)
 
     def _create_parameter_dock(self):
         """Create parameter panel dock widget"""

@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from PyQt6.QtGui import QColor
+from PyQt6.QtCore import pyqtSignal
 import pyqtgraph as pg
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 class GlobalViewWidget(QWidget):
     """Widget displaying global agent view using PyQtGraph"""
+
+    # Signal emitted when agent is selected
+    agent_selected = pyqtSignal(int)  # agent_id
 
     def __init__(self, parent=None, world_size=(20.0, 20.0)):
         super().__init__(parent)
@@ -63,6 +67,7 @@ class GlobalViewWidget(QWidget):
         self.scatter_item = None
         self.velocity_item = None
         self.colorbar = None
+        self.highlight_item = None
 
     def _setup_plot(self):
         """Initialize plot appearance"""
@@ -155,6 +160,30 @@ class GlobalViewWidget(QWidget):
                 size=sizes
             )
 
+        # Highlight selected agent with yellow border
+        if self.selected_agent_id is not None:
+            for i, agent in enumerate(self.agents_data):
+                if agent['agent_id'] == self.selected_agent_id:
+                    # Create highlight scatter item
+                    if self.highlight_item is None:
+                        self.highlight_item = pg.ScatterPlotItem(
+                            pen=pg.mkPen('y', width=3),
+                            brush=None,
+                            size=sizes[i] + 10,
+                            symbol='o'
+                        )
+                        self.plot_item.addItem(self.highlight_item)
+                    else:
+                        self.highlight_item.setData(
+                            pos=[positions[i]],
+                            size=[sizes[i] + 10]
+                        )
+                    break
+        elif self.highlight_item is not None:
+            # Remove highlight if no agent is selected
+            self.plot_item.removeItem(self.highlight_item)
+            self.highlight_item = None
+
         # Update or create velocity vectors
         # Create line segments for velocity arrows
         velocity_lines = self._create_velocity_lines(positions, velocities)
@@ -174,6 +203,36 @@ class GlobalViewWidget(QWidget):
                 velocity_lines[:, 1],
                 connect='pairs'
             )
+
+    def mousePressEvent(self, event):
+        """Handle mouse click to select agent"""
+        from PyQt6.QtCore import Qt
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        # Get click position in plot coordinates
+        mouse_point = self.plot_item.vb.mapSceneToView(event.pos())
+        click_x = mouse_point.x()
+        click_y = mouse_point.y()
+
+        # Find nearest agent within selection radius
+        min_dist = float('inf')
+        selected_id = None
+        selection_radius = 1.0  # 1 unit in world coordinates
+
+        for agent in self.agents_data:
+            dx = agent['x'] - click_x
+            dy = agent['y'] - click_y
+            dist = (dx**2 + dy**2)**0.5
+
+            if dist < selection_radius and dist < min_dist:
+                min_dist = dist
+                selected_id = agent['agent_id']
+
+        if selected_id is not None:
+            self.selected_agent_id = selected_id
+            self.agent_selected.emit(selected_id)
+            self._render()  # Re-render to show selection
 
     def _haze_to_colors(self, haze: np.ndarray) -> List:
         """
