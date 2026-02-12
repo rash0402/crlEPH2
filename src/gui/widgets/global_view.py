@@ -102,7 +102,8 @@ class GlobalViewWidget(QWidget):
                     'agent_id', 'x', 'y', 'vx', 'vy',
                     'haze_mean', 'fatigue', 'efe'
         """
-        self.agents_data = agents
+        # Deep copy to prevent caller from mutating our data
+        self.agents_data = [agent.copy() for agent in agents] if agents else []
         if not agents:
             logger.warning("update_agents called with empty agents list")
             return
@@ -205,13 +206,30 @@ class GlobalViewWidget(QWidget):
             )
 
     def mousePressEvent(self, event):
-        """Handle mouse click to select agent"""
+        """
+        Handle mouse click to select agent
+
+        Coordinate Transformation Process:
+        1. event.pos() → widget coordinates (pixels relative to this widget)
+        2. self.mapToScene() → scene coordinates (GraphicsScene coordinate system)
+        3. mapSceneToView() → view coordinates (data/plot coordinates)
+
+        Selection Behavior:
+        - Uses 1.0 unit radius in world coordinates
+        - Selects nearest agent within radius
+        - Emits agent_selected signal with agent_id
+        - Re-renders view to show yellow highlight border
+
+        Args:
+            event: QMouseEvent containing click position
+        """
         from PyQt6.QtCore import Qt
         if event.button() != Qt.MouseButton.LeftButton:
             return
 
         # Get click position in plot coordinates
-        mouse_point = self.plot_item.vb.mapSceneToView(event.pos())
+        # Must convert widget coords → scene coords → view coords
+        mouse_point = self.plot_item.vb.mapSceneToView(self.mapToScene(event.pos()))
         click_x = mouse_point.x()
         click_y = mouse_point.y()
 
