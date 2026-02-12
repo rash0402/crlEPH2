@@ -210,9 +210,10 @@ class GlobalViewWidget(QWidget):
         Handle mouse click to select agent
 
         Coordinate Transformation Process:
-        1. event.pos() → widget coordinates (pixels relative to this widget)
-        2. self.mapToScene() → scene coordinates (GraphicsScene coordinate system)
-        3. mapSceneToView() → view coordinates (data/plot coordinates)
+        1. event.pos() → widget coordinates (pixels relative to GlobalViewWidget)
+        2. plot_widget.mapFromParent() → plot_widget coordinates
+        3. plot_widget.mapToScene() → scene coordinates (GraphicsScene)
+        4. plot_item.vb.mapSceneToView() → view/data coordinates
 
         Selection Behavior:
         - Uses 1.0 unit radius in world coordinates
@@ -228,8 +229,10 @@ class GlobalViewWidget(QWidget):
             return
 
         # Get click position in plot coordinates
-        # Must convert widget coords → scene coords → view coords
-        mouse_point = self.plot_item.vb.mapSceneToView(self.mapToScene(event.pos()))
+        # 4-step transformation chain (GlobalViewWidget → plot_widget → scene → view)
+        plot_pos = self.plot_widget.mapFromParent(event.pos())
+        scene_pos = self.plot_widget.mapToScene(plot_pos)
+        mouse_point = self.plot_item.vb.mapSceneToView(scene_pos)
         click_x = mouse_point.x()
         click_y = mouse_point.y()
 
