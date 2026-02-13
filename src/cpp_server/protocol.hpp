@@ -78,7 +78,7 @@ struct AgentDetailData {
     float spm_data[144];     // SPM 12x12 = 144 floats
     float velocity_angle;    // Agent heading in radians
     uint16_t neighbor_ids[6];// Neighbor agent IDs
-    uint16_t padding[6];     // Alignment to 8-byte boundary (6 bytes padding needed)
+    uint16_t padding[6];     // Padding to match Python format (12 bytes)
 } __attribute__((packed));
 
 static_assert(sizeof(AgentDetailData) == 608, "AgentDetailData must be 608 bytes");

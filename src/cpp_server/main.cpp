@@ -2,6 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <numeric>
+#include <optional>
 #include "udp_server.hpp"
 #include "eph_swarm/swarm_manager.hpp"
 #include "eph_phase/phase_analyzer.hpp"
