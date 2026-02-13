@@ -12,6 +12,7 @@ from typing import List, Dict, Any
 from .global_view import GlobalViewWidget
 from .parameter_panel import ParameterPanel
 from .playback_toolbar import PlaybackToolbar
+from .agent_detail_panel import AgentDetailPanel
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,9 @@ class MainWindow(QMainWindow):
 
         # Left dock: Parameter Panel
         self._create_parameter_dock()
+
+        # Bottom dock: Agent Detail Panel
+        self._create_detail_dock()
 
         # Status bar
         self.status_bar = QStatusBar()
@@ -106,10 +110,27 @@ class MainWindow(QMainWindow):
         # Connect signal
         self.parameter_panel.parameters_changed.connect(self._on_parameters_changed)
 
+    def _create_detail_dock(self):
+        """Create agent detail panel dock widget"""
+        self.detail_panel = AgentDetailPanel()
+
+        dock = QDockWidget("Agent Detail", self)
+        dock.setWidget(self.detail_panel)
+        dock.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
+
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+
     def _on_parameters_changed(self, params: Dict[str, Any]):
         """Parameter panel Apply clicked"""
         # Forward to main application
         self.parameters_changed.emit(params)
+
+    def _on_agent_selected(self, agent_id: int):
+        """Handle agent selection from global view"""
+        logger.info(f"Agent {agent_id} selected")
+        # Detail panel will update when detail packet arrives
+        # For now, clear and show placeholder
+        self.detail_panel.clear()
 
     def update_connection_status(self, connected: bool):
         """Update connection status indicator"""
