@@ -2,6 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <numeric>
+#include <optional>
 #include "udp_server.hpp"
 #include "eph_swarm/swarm_manager.hpp"
 #include "eph_phase/phase_analyzer.hpp"
@@ -49,6 +50,9 @@ int main(int argc, char** argv) {
     double speed_multiplier = 1.0;
     int sleep_ms = static_cast<int>(dt * 1000);
 
+    // Agent selection state
+    std::optional<size_t> selected_agent_id;
+
     while (true) {
         // Check for commands
         auto command = server.receive_command();
@@ -81,6 +85,16 @@ int main(int argc, char** argv) {
                 auto params = command.value()["parameters"];
                 std::cout << "  Parameters: " << params.dump() << std::endl;
                 // TODO: Apply parameters (Phase 2 deferred)
+            }
+            else if (cmd_type == "select_agent") {
+                int agent_id = command.value().value("agent_id", -1);
+                if (agent_id >= 0 && agent_id < static_cast<int>(N_AGENTS)) {
+                    selected_agent_id = static_cast<size_t>(agent_id);
+                    std::cout << "  Selected agent: " << agent_id << std::endl;
+                } else {
+                    selected_agent_id = std::nullopt;
+                    std::cout << "  Deselected agent (invalid ID)" << std::endl;
+                }
             }
         }
 
@@ -149,6 +163,42 @@ int main(int argc, char** argv) {
             if (!server.send_state(packet)) {
                 std::cerr << "Failed to send packet: " << server.get_last_error() << std::endl;
             }
+        }
+
+        // Send selected agent detail (if any)
+        if (selected_agent_id.has_value() && timestep % SEND_INTERVAL == 0) {
+            const auto& agent = swarm.get_agent(selected_agent_id.value());
+            const auto& agent_state = agent.state();
+            const auto& spm_data = agent.haze();  // 12x12 Matrix12x12
+
+            udp::AgentDetailData detail;
+            detail.agent_id = static_cast<uint16_t>(selected_agent_id.value());
+
+            // Flatten SPM data (row-major: r=0..11, theta=0..11)
+            for (int r = 0; r < 12; ++r) {
+                for (int theta = 0; theta < 12; ++theta) {
+                    detail.spm_data[r * 12 + theta] = static_cast<float>(spm_data(r, theta));
+                }
+            }
+
+            // Velocity angle (atan2 returns [-π, π])
+            detail.velocity_angle = static_cast<float>(
+                std::atan2(agent_state.velocity.y(), agent_state.velocity.x())
+            );
+
+            // Get neighbors
+            auto neighbors = swarm.find_neighbors(selected_agent_id.value());
+            detail.num_neighbors = static_cast<uint16_t>(std::min(neighbors.size(), size_t(6)));
+            for (size_t i = 0; i < detail.num_neighbors; ++i) {
+                detail.neighbor_ids[i] = static_cast<uint16_t>(neighbors[i]);
+            }
+            for (size_t i = detail.num_neighbors; i < 6; ++i) {
+                detail.neighbor_ids[i] = 0xFFFF;  // Invalid marker
+            }
+
+            // Send via UDP (reuse send socket, different format)
+            // For simplicity, append to state packet (alternative: separate port)
+            // TODO: Implement proper serialization
         }
 
         // Sleep with speed adjustment
