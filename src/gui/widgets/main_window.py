@@ -39,11 +39,11 @@ class MainWindow(QMainWindow):
         self.playback_toolbar = PlaybackToolbar()
         self.addToolBar(self.playback_toolbar)
 
-        # Connect toolbar signals
-        self.playback_toolbar.play_clicked.connect(lambda: self.playback_play.emit())
-        self.playback_toolbar.pause_clicked.connect(lambda: self.playback_pause.emit())
-        self.playback_toolbar.stop_clicked.connect(lambda: self.playback_stop.emit())
-        self.playback_toolbar.speed_changed.connect(lambda s: self.playback_speed_changed.emit(s))
+        # Connect toolbar signals (signal-to-signal forwarding)
+        self.playback_toolbar.play_clicked.connect(self.playback_play)
+        self.playback_toolbar.pause_clicked.connect(self.playback_pause)
+        self.playback_toolbar.stop_clicked.connect(self.playback_stop)
+        self.playback_toolbar.speed_changed.connect(self.playback_speed_changed)
 
         # Central widget: Global View
         self.global_view = GlobalViewWidget()

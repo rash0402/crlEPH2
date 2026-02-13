@@ -6,6 +6,7 @@ Matches C++ protocol definition in cpp_server/protocol.hpp
 
 import struct
 from typing import Optional, Dict, List, Any
+import numpy as np
 
 # Magic number: 0xEFE20210 (EPH v2.1, 2021-0)
 MAGIC_NUMBER = 0xEFE20210
@@ -108,7 +109,6 @@ class AgentDetailData:
         # values[153:159] are padding, ignored
 
         # Reshape SPM to 12x12
-        import numpy as np
         spm_matrix = np.array(spm_flat).reshape((12, 12))
 
         # Filter valid neighbor IDs

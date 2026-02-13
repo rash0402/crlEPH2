@@ -11,11 +11,12 @@ Performance: 10-100x faster than matplotlib version
 """
 
 import logging
+import math
 from typing import List, Dict, Any, Optional
 import numpy as np
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QHBoxLayout
 from PyQt6.QtGui import QColor
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,6 @@ class GlobalViewWidget(QWidget):
         ))
 
         # Setup layout (horizontal: plot + colorbar)
-        from PyQt6.QtWidgets import QHBoxLayout
         layout = QHBoxLayout()
         layout.addWidget(self.plot_widget)
         layout.addWidget(self.gradient_widget)
@@ -162,31 +162,10 @@ class GlobalViewWidget(QWidget):
             )
 
         # Highlight selected agent with yellow border
-        if self.selected_agent_id is not None:
-            for i, agent in enumerate(self.agents_data):
-                if agent['agent_id'] == self.selected_agent_id:
-                    # Create highlight scatter item
-                    if self.highlight_item is None:
-                        self.highlight_item = pg.ScatterPlotItem(
-                            pen=pg.mkPen('y', width=3),
-                            brush=None,
-                            size=sizes[i] + 10,
-                            symbol='o'
-                        )
-                        self.plot_item.addItem(self.highlight_item)
-                    else:
-                        self.highlight_item.setData(
-                            pos=[positions[i]],
-                            size=[sizes[i] + 10]
-                        )
-                    break
-        elif self.highlight_item is not None:
-            # Remove highlight if no agent is selected
-            self.plot_item.removeItem(self.highlight_item)
-            self.highlight_item = None
+        self._update_highlight(positions, sizes)
 
-        # Update or create velocity vectors
-        # Create line segments for velocity arrows
+        # Update or create velocity vectors (line segments)
+
         velocity_lines = self._create_velocity_lines(positions, velocities)
 
         if self.velocity_item is None:
@@ -204,6 +183,34 @@ class GlobalViewWidget(QWidget):
                 velocity_lines[:, 1],
                 connect='pairs'
             )
+
+    def _update_highlight(self, positions: np.ndarray, sizes: np.ndarray):
+        """Update or remove highlight ring on the selected agent"""
+        if self.selected_agent_id is None:
+            if self.highlight_item is not None:
+                self.plot_item.removeItem(self.highlight_item)
+                self.highlight_item = None
+            return
+
+        for i, agent in enumerate(self.agents_data):
+            if agent['agent_id'] == self.selected_agent_id:
+                highlight_pos = [positions[i]]
+                highlight_size = [sizes[i] + 10]
+                if self.highlight_item is None:
+                    self.highlight_item = pg.ScatterPlotItem(
+                        pos=highlight_pos,
+                        pen=pg.mkPen('y', width=3),
+                        brush=None,
+                        size=highlight_size,
+                        symbol='o'
+                    )
+                    self.plot_item.addItem(self.highlight_item)
+                else:
+                    self.highlight_item.setData(
+                        pos=highlight_pos,
+                        size=highlight_size
+                    )
+                return
 
     def mousePressEvent(self, event):
         """
@@ -224,7 +231,6 @@ class GlobalViewWidget(QWidget):
         Args:
             event: QMouseEvent containing click position
         """
-        from PyQt6.QtCore import Qt
         if event.button() != Qt.MouseButton.LeftButton:
             return
 
@@ -242,9 +248,7 @@ class GlobalViewWidget(QWidget):
         selection_radius = 1.0  # 1 unit in world coordinates
 
         for agent in self.agents_data:
-            dx = agent['x'] - click_x
-            dy = agent['y'] - click_y
-            dist = (dx**2 + dy**2)**0.5
+            dist = math.hypot(agent['x'] - click_x, agent['y'] - click_y)
 
             if dist < selection_radius and dist < min_dist:
                 min_dist = dist
@@ -257,27 +261,22 @@ class GlobalViewWidget(QWidget):
 
     def _haze_to_colors(self, haze: np.ndarray) -> List:
         """
-        Convert haze values [0, 1] to blue→yellow gradient colors
+        Convert haze values [0, 1] to blue->yellow gradient colors
 
         Args:
             haze: Array of haze values [0, 1]
 
         Returns:
-            List of QColor objects
+            List of QBrush objects for pyqtgraph scatter plot
         """
-        colors = []
-        for h in haze:
-            # Clamp to [0, 1]
-            h = np.clip(h, 0.0, 1.0)
+        # Clamp all values to [0, 1] at once
+        clamped = np.clip(haze, 0.0, 1.0)
 
-            # Blue (0, 0, 255) → Yellow (255, 255, 0)
-            r = int(h * 255)
-            g = int(h * 255)
-            b = int((1.0 - h) * 255)
+        # Blue (0, 0, 255) -> Yellow (255, 255, 0)
+        rg = (clamped * 255).astype(int)
+        b = ((1.0 - clamped) * 255).astype(int)
 
-            colors.append(pg.mkBrush(QColor(r, g, b, 178)))  # alpha=0.7
-
-        return colors
+        return [pg.mkBrush(QColor(rg[i], rg[i], b[i], 178)) for i in range(len(clamped))]
 
     def _create_velocity_lines(self, positions: np.ndarray, velocities: np.ndarray) -> np.ndarray:
         """

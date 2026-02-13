@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 class AgentDetailPanel(QWidget):
     """Widget for displaying selected agent details"""
 
+    # Default placeholder text for each column
+    _HEATMAP_PLACEHOLDER = "SPM Heatmap\n(12\u00d712)"
+    _POLAR_PLACEHOLDER = "SPM Polar\n(270\u00b0 FOV)"
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -28,17 +32,11 @@ class AgentDetailPanel(QWidget):
         main_layout.setSpacing(10)
 
         # Column 1: SPM Heatmap
-        self.heatmap_widget = QLabel("SPM Heatmap\n(12×12)")
-        self.heatmap_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.heatmap_widget.setMinimumSize(300, 300)
-        self.heatmap_widget.setStyleSheet("border: 1px solid gray;")
+        self.heatmap_widget = self._create_placeholder(self._HEATMAP_PLACEHOLDER)
         main_layout.addWidget(self.heatmap_widget)
 
         # Column 2: SPM Polar
-        self.polar_widget = QLabel("SPM Polar\n(270° FOV)")
-        self.polar_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.polar_widget.setMinimumSize(300, 300)
-        self.polar_widget.setStyleSheet("border: 1px solid gray;")
+        self.polar_widget = self._create_placeholder(self._POLAR_PLACEHOLDER)
         main_layout.addWidget(self.polar_widget)
 
         # Column 3: Statistics
@@ -58,6 +56,15 @@ class AgentDetailPanel(QWidget):
 
         # Current data
         self.current_detail: Optional[Dict[str, Any]] = None
+
+    @staticmethod
+    def _create_placeholder(text: str, min_size: tuple = (300, 300)) -> QLabel:
+        """Create a bordered placeholder label for visualization columns"""
+        label = QLabel(text)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setMinimumSize(*min_size)
+        label.setStyleSheet("border: 1px solid gray;")
+        return label
 
     def update_detail(self, detail: Dict[str, Any]):
         """Update panel with agent detail data
@@ -102,5 +109,5 @@ Max: {spm.max():.3f}<br><br>
         """Clear all displays"""
         self.current_detail = None
         self.stats_label.setText("No agent selected")
-        self.heatmap_widget.setText("SPM Heatmap\n(12×12)")
-        self.polar_widget.setText("SPM Polar\n(270° FOV)")
+        self.heatmap_widget.setText(self._HEATMAP_PLACEHOLDER)
+        self.polar_widget.setText(self._POLAR_PLACEHOLDER)
