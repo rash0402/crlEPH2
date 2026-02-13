@@ -49,9 +49,16 @@ class AgentDetailPanel(QWidget):
         # Initialize colorbar reference
         self.heatmap_colorbar = None
 
-        # Column 2: SPM Polar
-        self.polar_widget = self._create_placeholder(self._POLAR_PLACEHOLDER)
-        main_layout.addWidget(self.polar_widget)
+        # Column 2: SPM Polar (matplotlib polar plot)
+        self.polar_figure = Figure(figsize=(4, 4), dpi=80)
+        self.polar_canvas = FigureCanvasQTAgg(self.polar_figure)
+        self.polar_ax = self.polar_figure.add_subplot(111, projection='polar')
+        self.polar_ax.set_title("SPM Polar (270° FOV)")
+        self.polar_figure.tight_layout()
+        main_layout.addWidget(self.polar_canvas)
+
+        # Initialize colorbar reference
+        self.polar_colorbar = None
 
         # Column 3: Statistics
         stats_layout = QVBoxLayout()
@@ -112,11 +119,10 @@ Max: {spm.max():.3f}<br><br>
 
             self.stats_label.setText(stats_text)
 
-            # Render SPM heatmap
+            # Render SPM visualizations
             if spm is not None and spm.shape == (12, 12):
                 self._render_heatmap(spm)
-
-            # TODO: Update polar plot (Task 5)
+                self._render_polar(spm, angle)
 
         except (KeyError, AttributeError, TypeError) as e:
             logger.error(f"Failed to update agent detail: {e}")
@@ -159,6 +165,71 @@ Max: {spm.max():.3f}<br><br>
         self.heatmap_figure.tight_layout()
         self.heatmap_canvas.draw()
 
+    def _render_polar(self, spm: np.ndarray, heading_rad: float):
+        """Render SPM as polar plot with 270° FOV and ego-centric rotation
+
+        Args:
+            spm: 12x12 numpy array of saliency values
+            heading_rad: Agent heading in radians
+        """
+        self.polar_ax.clear()
+
+        # SPM dimensions
+        n_radial = spm.shape[0]   # 12
+        n_angular = spm.shape[1]  # 12
+
+        # Create polar coordinates
+        # Angular bins: 0° to 360° (12 bins, 30° each)
+        theta_edges = np.linspace(0, 2*np.pi, n_angular + 1)
+
+        # Radial bins: 0 to max_radius (12 bins)
+        r_edges = np.linspace(0, 10.0, n_radial + 1)  # Assume max radius = 10 units
+
+        # Create meshgrid for pcolormesh
+        theta_mesh, r_mesh = np.meshgrid(theta_edges, r_edges)
+
+        # Rotate coordinates to make agent heading = 0° (up)
+        # Subtract heading to rotate world, not agent
+        theta_mesh_rotated = theta_mesh - heading_rad
+
+        # Plot as pcolormesh (filled patches)
+        mesh = self.polar_ax.pcolormesh(
+            theta_mesh_rotated, r_mesh, spm,
+            cmap='viridis',
+            vmin=0.0,
+            vmax=1.0,
+            shading='flat'
+        )
+
+        # Add 270° FOV mask (gray out rear 90°: -45° to +45° from rear)
+        # Rear direction = heading + π (relative to rotated coordinates)
+        rear_start = np.pi - np.pi/4  # 135° (relative to heading=0)
+        rear_end = np.pi + np.pi/4    # 225° (relative to heading=0)
+
+        # Draw gray wedge for blind spot
+        theta_blind = np.linspace(rear_start, rear_end, 50)
+        r_blind = np.full_like(theta_blind, 10.0)
+        self.polar_ax.fill_between(
+            theta_blind, 0, r_blind,
+            color='gray',
+            alpha=0.5,
+            label='Blind spot (90°)'
+        )
+
+        # Configure polar axis
+        self.polar_ax.set_theta_zero_location('N')  # 0° at top
+        self.polar_ax.set_theta_direction(-1)        # Clockwise
+        self.polar_ax.set_rlabel_position(45)
+        self.polar_ax.set_title(f"SPM Polar (270° FOV)\nHeading: {np.degrees(heading_rad):.1f}°")
+
+        # Colorbar (create once, reuse)
+        if self.polar_colorbar is None:
+            self.polar_colorbar = self.polar_figure.colorbar(mesh, ax=self.polar_ax)
+            self.polar_colorbar.set_label('Saliency')
+
+        self.polar_figure.tight_layout()
+        self.polar_canvas.draw()
+
     def clear(self):
         """Clear all displays"""
         self.current_detail = None
@@ -172,4 +243,11 @@ Max: {spm.max():.3f}<br><br>
         self.heatmap_figure.tight_layout()
         self.heatmap_canvas.draw()
 
-        self.polar_widget.setText(self._POLAR_PLACEHOLDER)
+        # Clear polar plot
+        self.polar_ax.clear()
+        self.polar_ax.set_title("SPM Polar (270° FOV)")
+        self.polar_ax.text(0.5, 0.5, 'No agent selected',
+                           ha='center', va='center',
+                           transform=self.polar_ax.transAxes)
+        self.polar_figure.tight_layout()
+        self.polar_canvas.draw()
