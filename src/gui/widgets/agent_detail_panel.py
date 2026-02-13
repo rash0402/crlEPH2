@@ -13,6 +13,11 @@ from typing import Dict, Any, Optional
 import numpy as np
 import logging
 
+import matplotlib
+matplotlib.use('Qt5Agg')  # Must be before importing pyplot
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,9 +36,18 @@ class AgentDetailPanel(QWidget):
         main_layout.setContentsMargins(5, 5, 5, 5)
         main_layout.setSpacing(10)
 
-        # Column 1: SPM Heatmap
-        self.heatmap_widget = self._create_placeholder(self._HEATMAP_PLACEHOLDER)
-        main_layout.addWidget(self.heatmap_widget)
+        # Column 1: SPM Heatmap (matplotlib)
+        self.heatmap_figure = Figure(figsize=(4, 4), dpi=80)
+        self.heatmap_canvas = FigureCanvasQTAgg(self.heatmap_figure)
+        self.heatmap_ax = self.heatmap_figure.add_subplot(111)
+        self.heatmap_ax.set_title("SPM Heatmap (12×12)")
+        self.heatmap_ax.set_xlabel("Angular Bin (θ)")
+        self.heatmap_ax.set_ylabel("Radial Bin (r)")
+        self.heatmap_figure.tight_layout()
+        main_layout.addWidget(self.heatmap_canvas)
+
+        # Initialize colorbar reference
+        self.heatmap_colorbar = None
 
         # Column 2: SPM Polar
         self.polar_widget = self._create_placeholder(self._POLAR_PLACEHOLDER)
@@ -98,16 +112,64 @@ Max: {spm.max():.3f}<br><br>
 
             self.stats_label.setText(stats_text)
 
-            # TODO: Update heatmap (Task 4)
+            # Render SPM heatmap
+            if spm is not None and spm.shape == (12, 12):
+                self._render_heatmap(spm)
+
             # TODO: Update polar plot (Task 5)
 
         except (KeyError, AttributeError, TypeError) as e:
             logger.error(f"Failed to update agent detail: {e}")
             self.clear()
 
+    def _render_heatmap(self, spm: np.ndarray):
+        """Render SPM as 12x12 heatmap
+
+        Args:
+            spm: 12x12 numpy array of saliency values
+        """
+        self.heatmap_ax.clear()
+
+        # Plot heatmap (origin='lower' puts r=0 at bottom)
+        im = self.heatmap_ax.imshow(
+            spm,
+            cmap='viridis',
+            aspect='auto',
+            origin='lower',
+            interpolation='nearest',
+            vmin=0.0,
+            vmax=1.0
+        )
+
+        # Labels
+        self.heatmap_ax.set_title("SPM Heatmap (12×12)")
+        self.heatmap_ax.set_xlabel("Angular Bin (0°-360°)")
+        self.heatmap_ax.set_ylabel("Radial Bin (near → far)")
+
+        # Ticks
+        self.heatmap_ax.set_xticks(np.arange(12))
+        self.heatmap_ax.set_xticklabels([f"{i*30}°" for i in range(12)])
+        self.heatmap_ax.set_yticks(np.arange(12))
+
+        # Colorbar (create once, reuse)
+        if self.heatmap_colorbar is None:
+            self.heatmap_colorbar = self.heatmap_figure.colorbar(im, ax=self.heatmap_ax)
+            self.heatmap_colorbar.set_label('Saliency')
+
+        self.heatmap_figure.tight_layout()
+        self.heatmap_canvas.draw()
+
     def clear(self):
         """Clear all displays"""
         self.current_detail = None
         self.stats_label.setText("No agent selected")
-        self.heatmap_widget.setText(self._HEATMAP_PLACEHOLDER)
+
+        # Clear heatmap
+        self.heatmap_ax.clear()
+        self.heatmap_ax.set_title("SPM Heatmap (12×12)")
+        self.heatmap_ax.text(0.5, 0.5, 'No agent selected',
+                             ha='center', va='center', transform=self.heatmap_ax.transAxes)
+        self.heatmap_figure.tight_layout()
+        self.heatmap_canvas.draw()
+
         self.polar_widget.setText(self._POLAR_PLACEHOLDER)
