@@ -90,12 +90,6 @@ class MainWindow(QMainWindow):
         self.beta_label = QLabel("β: -")
         self.status_bar.addPermanentWidget(self.beta_label)
 
-    def _on_agent_selected(self, agent_id: int):
-        """Handle agent selection from global view"""
-        logger.info(f"Agent {agent_id} selected")
-        # TODO: Update detail panel (Task 3)
-        # TODO: Send select_agent command to C++ (Task 2)
-
     def _create_parameter_dock(self):
         """Create parameter panel dock widget"""
         self.parameter_panel = ParameterPanel()

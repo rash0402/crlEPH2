@@ -11,6 +11,9 @@ from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
 from PyQt6.QtCore import Qt
 from typing import Dict, Any, Optional
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AgentDetailPanel(QWidget):
@@ -57,30 +60,43 @@ class AgentDetailPanel(QWidget):
         self.current_detail: Optional[Dict[str, Any]] = None
 
     def update_detail(self, detail: Dict[str, Any]):
-        """Update panel with agent detail data"""
-        self.current_detail = detail
+        """Update panel with agent detail data
 
-        # Update statistics text
-        agent_id = detail.get('agent_id', -1)
-        spm_shape = detail.get('spm', np.zeros((12, 12))).shape
-        angle = detail.get('velocity_angle', 0.0)
-        neighbors = detail.get('neighbor_ids', [])
-
-        stats_text = f"""<b>Agent #{agent_id}</b><br><br>
-        <b>SPM Data:</b><br>
-        Shape: {spm_shape[0]}×{spm_shape[1]}<br>
-        Min: {detail.get('spm', np.zeros((12, 12))).min():.3f}<br>
-        Max: {detail.get('spm', np.zeros((12, 12))).max():.3f}<br><br>
-        <b>Heading:</b><br>
-        {np.degrees(angle):.1f}°<br><br>
-        <b>Neighbors ({len(neighbors)}):</b><br>
-        {', '.join(f'#{n}' for n in neighbors)}
+        Args:
+            detail: Dict with keys:
+                - agent_id: int
+                - spm: np.ndarray (12x12)
+                - velocity_angle: float (radians)
+                - neighbor_ids: List[int]
         """
+        try:
+            self.current_detail = detail
 
-        self.stats_label.setText(stats_text)
+            # Extract data once
+            agent_id = detail.get('agent_id', -1)
+            spm = detail.get('spm', np.zeros((12, 12)))
+            angle = detail.get('velocity_angle', 0.0)
+            neighbors = detail.get('neighbor_ids', [])
 
-        # TODO: Update heatmap (Task 4)
-        # TODO: Update polar plot (Task 5)
+            stats_text = f"""<b>Agent #{agent_id}</b><br><br>
+<b>SPM Data:</b><br>
+Shape: {spm.shape[0]}×{spm.shape[1]}<br>
+Min: {spm.min():.3f}<br>
+Max: {spm.max():.3f}<br><br>
+<b>Heading:</b><br>
+{np.degrees(angle):.1f}°<br><br>
+<b>Neighbors ({len(neighbors)}):</b><br>
+{', '.join(f'#{n}' for n in neighbors)}
+"""
+
+            self.stats_label.setText(stats_text)
+
+            # TODO: Update heatmap (Task 4)
+            # TODO: Update polar plot (Task 5)
+
+        except (KeyError, AttributeError, TypeError) as e:
+            logger.error(f"Failed to update agent detail: {e}")
+            self.clear()
 
     def clear(self):
         """Clear all displays"""
