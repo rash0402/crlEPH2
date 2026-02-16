@@ -1,0 +1,2081 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPH v2.1 — アーキテクチャ ドキュメント</title>
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js"></script>
+
+<!-- Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+
+<style>
+/* ==============================
+   CSS Reset & Base
+   ============================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #eef1f5;
+  --bg-hover: #e2e6ea;
+  --border-primary: #d0d7de;
+  --border-secondary: #e2e6ea;
+  --text-primary: #1f2328;
+  --text-secondary: #57606a;
+  --text-muted: #8b949e;
+  --accent-blue: #0969da;
+  --accent-green: #1a7f37;
+  --accent-purple: #8250df;
+  --accent-orange: #bc4c00;
+  --accent-red: #cf222e;
+  --accent-yellow: #9a6700;
+  --sidebar-width: 260px;
+  --header-height: 0px;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 24px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-size: 15px;
+  overflow-x: hidden;
+}
+
+/* ==============================
+   Sidebar
+   ============================== */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  overflow-y: auto;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition-normal);
+}
+
+.sidebar-header {
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+
+.sidebar-logo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.sidebar-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sidebar-search {
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+
+.sidebar-search input {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.sidebar-search input:focus {
+  border-color: var(--accent-blue);
+}
+
+.sidebar-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.sidebar-search .search-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-align: right;
+}
+
+.sidebar-search .search-hint kbd {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.sidebar-nav a {
+  display: block;
+  padding: 6px 16px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  transition: all var(--transition-fast);
+  border-left: 2px solid transparent;
+}
+
+.sidebar-nav a:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.sidebar-nav a.active {
+  color: var(--accent-blue);
+  border-left-color: var(--accent-blue);
+  background: rgba(88, 166, 255, 0.05);
+}
+
+.sidebar-nav .nav-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  padding: 12px 16px 4px;
+  cursor: default;
+}
+
+.sidebar-nav .nav-indent {
+  padding-left: 28px;
+  font-size: 12px;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* ==============================
+   Main Content
+   ============================== */
+.main-content {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  padding: 0;
+}
+
+.content-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 40px 80px;
+}
+
+/* ==============================
+   Hero Section
+   ============================== */
+.hero {
+  padding: 48px 0 40px;
+  border-bottom: 1px solid var(--border-primary);
+  margin-bottom: 40px;
+}
+
+.hero h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.hero h1 .version {
+  color: var(--accent-blue);
+  font-weight: 400;
+}
+
+.hero .subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.stat-badge .stat-value {
+  color: var(--accent-green);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.stat-badge .stat-highlight {
+  color: var(--accent-purple);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.hero-langs {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.lang-tag {
+  padding: 2px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.lang-tag.cpp { color: var(--accent-blue); }
+.lang-tag.python { color: var(--accent-green); }
+.lang-tag.cmake { color: var(--accent-orange); }
+
+/* ==============================
+   Sections
+   ============================== */
+section {
+  margin-bottom: 48px;
+}
+
+section h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+section h2 .section-num {
+  color: var(--accent-blue);
+  font-weight: 400;
+  margin-right: 8px;
+}
+
+section h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 24px 0 12px;
+}
+
+section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-purple);
+  margin: 16px 0 8px;
+}
+
+p {
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+}
+
+/* ==============================
+   Mermaid Diagrams
+   ============================== */
+.diagram-container {
+  margin: 16px 0 24px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.diagram-container .diagram-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.mermaid {
+  display: flex;
+  justify-content: center;
+}
+
+/* ==============================
+   Tables
+   ============================== */
+.table-wrapper {
+  overflow-x: auto;
+  margin: 12px 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead {
+  background: var(--bg-tertiary);
+}
+
+th {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-primary);
+  white-space: nowrap;
+}
+
+td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-secondary);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background: rgba(88, 166, 255, 0.03);
+}
+
+td code, th code {
+  background: var(--bg-tertiary);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-blue);
+}
+
+/* ==============================
+   Details / Collapsible
+   ============================== */
+details {
+  margin: 12px 0;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  transition: background var(--transition-fast);
+}
+
+details[open] {
+  background: var(--bg-secondary);
+}
+
+details summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+  transition: background var(--transition-fast);
+  border-radius: 8px;
+}
+
+details summary:hover {
+  background: var(--bg-tertiary);
+}
+
+details[open] summary {
+  border-bottom: 1px solid var(--border-primary);
+  border-radius: 8px 8px 0 0;
+}
+
+details summary::before {
+  content: '\25B6';
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+.details-content {
+  padding: 16px;
+}
+
+.module-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.badge-layer0 { background: rgba(88,166,255,0.15); color: var(--accent-blue); }
+.badge-layer1 { background: rgba(126,231,135,0.15); color: var(--accent-green); }
+.badge-layer2 { background: rgba(210,168,255,0.15); color: var(--accent-purple); }
+.badge-layer3 { background: rgba(240,136,62,0.15); color: var(--accent-orange); }
+.badge-app { background: rgba(248,81,73,0.15); color: var(--accent-red); }
+
+.module-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 8px 0 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.module-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.module-meta code {
+  background: var(--bg-tertiary);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ==============================
+   Code Blocks
+   ============================== */
+code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+pre {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.inline-code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-blue);
+}
+
+/* ==============================
+   Math (KaTeX)
+   ============================== */
+.math-block {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.math-block .math-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-purple);
+  margin-bottom: 8px;
+}
+
+.math-block .math-used-in {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.math-block .math-used-in a {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+.math-block .math-used-in a:hover {
+  text-decoration: underline;
+}
+
+/* ==============================
+   Window Layout Diagram
+   ============================== */
+.layout-diagram {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  white-space: pre;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+/* ==============================
+   Links
+   ============================== */
+a {
+  color: var(--accent-blue);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ==============================
+   Utility
+   ============================== */
+.note-box {
+  padding: 12px 16px;
+  background: rgba(88, 166, 255, 0.08);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: 0 6px 6px 0;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.note-box.warn {
+  background: rgba(227, 179, 65, 0.08);
+  border-left-color: var(--accent-yellow);
+}
+
+.formula-ref {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  text-decoration: none;
+  opacity: 0.5;
+  transition: opacity var(--transition-fast);
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.source-link:hover {
+  opacity: 1;
+  text-decoration: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.highlight-match {
+  background: rgba(227, 179, 65, 0.3);
+  border-radius: 2px;
+}
+
+/* ==============================
+   Responsive
+   ============================== */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .mobile-menu-toggle {
+    display: block;
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  .content-container {
+    padding: 20px 16px 60px;
+  }
+
+  .hero h1 {
+    font-size: 24px;
+  }
+
+  .hero-stats {
+    flex-direction: column;
+  }
+
+  .table-wrapper {
+    font-size: 12px;
+  }
+
+  td, th {
+    padding: 4px 8px;
+  }
+}
+
+/* ==============================
+   Print
+   ============================== */
+@media print {
+  .sidebar,
+  .mobile-menu-toggle,
+  .sidebar-search {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+  }
+
+  body {
+    background: white;
+    color: #1a1a1a;
+    font-size: 11pt;
+  }
+
+  .hero {
+    border-bottom: 2px solid #333;
+  }
+
+  .hero h1 {
+    color: #000;
+  }
+
+  .hero h1 .version {
+    color: #0066cc;
+  }
+
+  section h2 {
+    color: #000;
+    border-bottom: 1px solid #ccc;
+  }
+
+  details {
+    border: 1px solid #ccc;
+    background: #fafafa;
+  }
+
+  details summary {
+    color: #000;
+  }
+
+  .diagram-container,
+  .math-block {
+    border: 1px solid #ccc;
+    background: #fafafa;
+  }
+
+  table {
+    font-size: 10pt;
+  }
+
+  thead {
+    background: #eee;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+  }
+
+  td code, th code {
+    background: #eee;
+    color: #0066cc;
+  }
+
+  .stat-badge {
+    border: 1px solid #ccc;
+    background: #f5f5f5;
+  }
+
+  .stat-badge .stat-value,
+  .stat-badge .stat-highlight {
+    color: #0066cc;
+  }
+
+  pre {
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+  }
+
+  .note-box {
+    background: #f5f5f5;
+    border-left-color: #0066cc;
+  }
+
+  a {
+    color: #0066cc;
+  }
+
+  details[open] summary {
+    border-bottom: 1px solid #ccc;
+  }
+
+  .module-badge {
+    border: 1px solid #aaa;
+    background: #eee;
+    color: #333;
+  }
+
+  .layout-diagram {
+    background: #f5f5f5;
+    border: 1px solid #ccc;
+    color: #333;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Mobile Menu Toggle -->
+<button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="ナビゲーション切替">&#9776;</button>
+
+<!-- ==============================
+     Sidebar
+     ============================== -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">EPH v2.1</div>
+    <div class="sidebar-subtitle">アーキテクチャ ドキュメント</div>
+  </div>
+
+  <div class="sidebar-search">
+    <input type="text" id="searchInput" placeholder="モジュール検索..." aria-label="ドキュメント検索">
+    <div class="search-hint"><kbd>/</kbd> でフォーカス</div>
+  </div>
+
+  <div class="sidebar-nav" id="sidebarNav">
+    <div class="nav-section-title">概要</div>
+    <a href="#hero" data-section="hero">ホーム</a>
+    <a href="#architecture-overview" data-section="architecture-overview">アーキテクチャ概要</a>
+
+    <div class="nav-section-title">モジュール</div>
+    <a href="#module-details" data-section="module-details">モジュール詳細</a>
+    <a href="#mod-core" class="nav-indent" data-section="mod-core">eph_core (レイヤー 0)</a>
+    <a href="#mod-spm" class="nav-indent" data-section="mod-spm">eph_spm (レイヤー 1)</a>
+    <a href="#mod-agent" class="nav-indent" data-section="mod-agent">eph_agent (レイヤー 2)</a>
+    <a href="#mod-swarm" class="nav-indent" data-section="mod-swarm">eph_swarm (レイヤー 3)</a>
+    <a href="#mod-phase" class="nav-indent" data-section="mod-phase">eph_phase (レイヤー 3)</a>
+    <a href="#mod-server" class="nav-indent" data-section="mod-server">cpp_server (アプリ)</a>
+    <a href="#mod-gui" class="nav-indent" data-section="mod-gui">Python GUI (アプリ)</a>
+
+    <div class="nav-section-title">統合</div>
+    <a href="#data-flow" data-section="data-flow">データフロー</a>
+    <a href="#gui-architecture" data-section="gui-architecture">GUI アーキテクチャ</a>
+
+    <div class="nav-section-title">リファレンス</div>
+    <a href="#math-reference" data-section="math-reference">数式リファレンス</a>
+    <a href="#quick-reference" data-section="quick-reference">クイックリファレンス</a>
+  </div>
+</nav>
+
+<!-- ==============================
+     Main Content
+     ============================== -->
+<main class="main-content">
+  <div class="content-container">
+
+    <!-- ============================
+         Section 1: Hero
+         ============================ -->
+    <header class="hero" id="hero">
+      <h1>EPH <span class="version">v2.1</span> &mdash; アーキテクチャ ドキュメント</h1>
+      <p class="subtitle">Emergent Phase Haze: 自由エネルギー原理に基づくマルチエージェント協調フレームワーク</p>
+
+      <div class="hero-stats">
+        <span class="stat-badge">
+          C++ パッケージ: <span class="stat-value">5</span>
+        </span>
+        <span class="stat-badge">
+          テスト合格: <span class="stat-value">154</span>
+        </span>
+        <span class="stat-badge">
+          &beta;<sub>c</sub> = <span class="stat-highlight">0.100</span> (理論値: 0.098)
+        </span>
+      </div>
+
+      <div class="hero-langs">
+        <span class="lang-tag cpp">C++17</span>
+        <span class="lang-tag python">Python (PyQt6)</span>
+        <span class="lang-tag cmake">CMake</span>
+      </div>
+    </header>
+
+    <!-- ============================
+         Section 2: Architecture Overview
+         ============================ -->
+    <section id="architecture-overview">
+      <h2><span class="section-num">1</span>アーキテクチャ概要</h2>
+
+      <p>EPHフレームワークは、厳密な依存関係の順序を持つレイヤー化されたパッケージで構成されています。下位レイヤーは基盤となる型やユーティリティを提供し、上位レイヤーはそれらを組み合わせてエージェントの行動、群れのダイナミクス、および相転移解析を実現します。</p>
+
+      <div class="diagram-container">
+        <div class="diagram-title">パッケージ依存関係グラフ</div>
+        <pre class="mermaid">
+graph TD
+    subgraph L0["レイヤー 0: 基盤"]
+        CORE["eph_core\ntypes, constants,\nmath_utils, config"]
+    end
+    subgraph L1["レイヤー 1: 知覚"]
+        SPM["eph_spm\nSaliencyPolarMap\n10ch x 12theta x 12r"]
+    end
+    subgraph L2["レイヤー 2: エージェント"]
+        AGENT["eph_agent\nEPHAgent, ActionSelector\nHazeEstimator"]
+    end
+    subgraph L3["レイヤー 3: 集団"]
+        SWARM["eph_swarm\nSwarmManager\nk-NN, MB-breaking"]
+        PHASE["eph_phase\nPhaseAnalyzer\nphi, chi, beta_c"]
+    end
+    subgraph APP["アプリケーション"]
+        SERVER["cpp_server\nUDPServer\nBinary Protocol"]
+        GUI["Python GUI\nPyQt6 + pyqtgraph"]
+    end
+    CORE --> SPM
+    CORE --> AGENT
+    SPM --> AGENT
+    AGENT --> SWARM
+    SWARM --> SERVER
+    PHASE --> SERVER
+    SERVER -.->|"UDP 5555 Binary"| GUI
+    GUI -.->|"UDP 5556 JSON"| SERVER
+
+    click CORE "#mod-core"
+    click SPM "#mod-spm"
+    click AGENT "#mod-agent"
+    click SWARM "#mod-swarm"
+    click PHASE "#mod-phase"
+    click SERVER "#mod-server"
+    click GUI "#mod-gui"
+
+    classDef foundation fill:#dbeafe,stroke:#0969da,color:#1f2328
+    classDef perception fill:#dcfce7,stroke:#1a7f37,color:#1f2328
+    classDef agent fill:#f3e8ff,stroke:#8250df,color:#1f2328
+    classDef collective fill:#ffedd5,stroke:#bc4c00,color:#1f2328
+    classDef application fill:#fee2e2,stroke:#cf222e,color:#1f2328
+
+    class CORE foundation
+    class SPM perception
+    class AGENT agent
+    class SWARM,PHASE collective
+    class SERVER,GUI application
+        </pre>
+      </div>
+
+      <div class="diagram-container">
+        <div class="diagram-title">シミュレーション フィードバックループ</div>
+        <pre class="mermaid">
+graph LR
+    AS["Action Selection\nEFE Gradient Descent\nv_new = v_old - eta * grad_G"] --> SU["State Update\nPosition + Velocity\nTorus Wrapping"]
+    SU --> PE["Prediction Error\n|delta_v| / V_MAX"]
+    PE --> HE["Haze Estimation\nsigma(a*EMA + b*R1\n+ c*(1-F4) + d*F5)\n+ Gaussian Blur"]
+    HE --> MB["MB Breaking\nh_eff = (1-beta)h\n+ beta * mean(h_j)\nk-NN Neighbors"]
+    MB --> AS
+
+    classDef step fill:#dbeafe,stroke:#0969da,color:#1f2328
+    class AS,SU,PE,HE,MB step
+        </pre>
+      </div>
+    </section>
+
+    <!-- ============================
+         Section 3: Module Details
+         ============================ -->
+    <section id="module-details">
+      <h2><span class="section-num">2</span>モジュール詳細</h2>
+
+      <!-- ========================
+           3a. eph_core
+           ======================== -->
+      <details id="mod-core" open>
+        <summary>
+          <span class="module-badge badge-layer0">レイヤー 0</span>
+          eph_core &mdash; 基盤型 &amp; ユーティリティ
+        </summary>
+        <div class="details-content">
+          <div class="module-meta">
+            <span>パス: <code>packages/eph_core/include/eph_core/</code></span>
+            <span>名前空間: <code>eph</code>, <code>eph::constants</code>, <code>eph::math</code></span>
+            <span>依存関係: <code>Eigen 3.4+</code></span>
+            <span>使用先: 他の全パッケージ</span>
+          </div>
+
+          <h4>型 (types.hpp) <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/types.hpp#L1" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>型</th><th>定義</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>Scalar</code></td><td><code>double</code></td><td>統一スカラー型</td></tr>
+                <tr><td><code>Vec2</code></td><td><code>Eigen::Vector2d</code></td><td>2D位置/速度ベクトル</td></tr>
+                <tr><td><code>Tensor3</code></td><td><code>Eigen::Tensor&lt;Scalar, 3&gt;</code></td><td>3Dテンソル (SPMデータ)</td></tr>
+                <tr><td><code>Matrix12x12</code></td><td><code>Eigen::Matrix&lt;Scalar, 12, 12&gt;</code></td><td>SPMチャネル行列</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>AgentState 構造体 <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/types.hpp#L20" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>フィールド</th><th>型</th><th>単位</th><th>範囲</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>position</code></td><td><code>Vec2</code></td><td>m</td><td>[-10, 10]</td><td>トロイダル位置</td></tr>
+                <tr><td><code>velocity</code></td><td><code>Vec2</code></td><td>m/s</td><td>[V_MIN, V_MAX]</td><td>現在の速度</td></tr>
+                <tr><td><code>kappa</code></td><td><code>Scalar</code></td><td>&mdash;</td><td>[0.3, 1.5]</td><td>Haze感度</td></tr>
+                <tr><td><code>fatigue</code></td><td><code>Scalar</code></td><td>&mdash;</td><td>[0, 1]</td><td>疲労レベル</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>ChannelID 列挙型 <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/types.hpp#L39" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>値</th><th>名称</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>T0</code></td><td>0</td><td>Obs Occupancy</td><td>教師のグラウンドトゥルース</td></tr>
+                <tr><td><code>R0</code></td><td>1</td><td>&Delta; Occupancy</td><td>占有率の変化</td></tr>
+                <tr><td><code>R1</code></td><td>2</td><td>Uncertainty</td><td>認識的不確実性</td></tr>
+                <tr><td><code>F0</code></td><td>3</td><td>Occupancy</td><td>現在の検知値</td></tr>
+                <tr><td><code>F1</code></td><td>4</td><td>Motion Pressure</td><td>運動フローフィールド</td></tr>
+                <tr><td><code>F2</code></td><td>5</td><td>Saliency</td><td>ボトムアップ顕著性</td></tr>
+                <tr><td><code>F3</code></td><td>6</td><td>TTC Proxy</td><td>衝突時間の近似</td></tr>
+                <tr><td><code>F4</code></td><td>7</td><td>Visibility</td><td>可視性フィールド</td></tr>
+                <tr><td><code>F5</code></td><td>8</td><td>Obs Stability</td><td>観測安定性</td></tr>
+                <tr><td><code>M0</code></td><td>9</td><td>Haze Field</td><td>計算されたHaze</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>定数 (constants.hpp) <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/constants.hpp#L1" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>定数</th><th>値</th><th>単位</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>N_CHANNELS</code></td><td>10</td><td>&mdash;</td><td>SPMチャネル数</td></tr>
+                <tr><td><code>N_THETA</code></td><td>12</td><td>&mdash;</td><td>角度ビン数 (30&deg;/ビン)</td></tr>
+                <tr><td><code>N_R</code></td><td>12</td><td>&mdash;</td><td>半径ビン数</td></tr>
+                <tr><td><code>FOV</code></td><td>270&deg;</td><td>deg</td><td>前方視野</td></tr>
+                <tr><td><code>BETA_C_TYPICAL</code></td><td>0.098</td><td>&mdash;</td><td>理論的臨界点</td></tr>
+                <tr><td><code>HAZE_COEFF_A</code></td><td>0.4</td><td>&mdash;</td><td>予測誤差の重み</td></tr>
+                <tr><td><code>HAZE_COEFF_B</code></td><td>0.3</td><td>&mdash;</td><td>不確実性の重み</td></tr>
+                <tr><td><code>HAZE_COEFF_C</code></td><td>0.2</td><td>&mdash;</td><td>不可視性の重み</td></tr>
+                <tr><td><code>HAZE_COEFF_D</code></td><td>0.1</td><td>&mdash;</td><td>観測不安定性の重み</td></tr>
+                <tr><td><code>V_MIN</code></td><td>0.1</td><td>m/s</td><td>最小速度</td></tr>
+                <tr><td><code>V_MAX</code></td><td>2.0</td><td>m/s</td><td>最大速度</td></tr>
+                <tr><td><code>LEARNING_RATE</code></td><td>0.8</td><td>&mdash;</td><td>勾配降下法 &eta;</td></tr>
+                <tr><td><code>FATIGUE_RATE</code></td><td>0.02</td><td>1/s</td><td>疲労蓄積率</td></tr>
+                <tr><td><code>RECOVERY_RATE</code></td><td>0.01</td><td>1/s</td><td>疲労回復率</td></tr>
+                <tr><td><code>WORLD_MIN / WORLD_MAX</code></td><td>&plusmn;10</td><td>m</td><td>トロイダル世界の境界</td></tr>
+                <tr><td><code>WORLD_SIZE</code></td><td>20.0</td><td>m</td><td>世界のサイズ</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>数学ユーティリティ (math_utils.hpp) <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/math_utils.hpp#L1" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>関数</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>clamp</code></td><td><code>(Scalar, min, max) &rarr; Scalar</code></td><td>値のクリッピング</td></tr>
+                <tr><td><code>wrap_angle</code></td><td><code>(Scalar) &rarr; Scalar</code></td><td>[-&pi;, &pi;) への正規化</td></tr>
+                <tr><td><code>wrap_index</code></td><td><code>(int, int) &rarr; int</code></td><td>周期境界条件 (&theta;方向)</td></tr>
+                <tr><td><code>clamp_index</code></td><td><code>(int, int) &rarr; int</code></td><td>ノイマン境界条件 (r方向)</td></tr>
+                <tr><td><code>sigmoid</code></td><td><code>(Scalar) &rarr; Scalar</code></td><td>数値安定シグモイド</td></tr>
+                <tr><td><code>lerp</code></td><td><code>(Scalar, Scalar, Scalar) &rarr; Scalar</code></td><td>線形補間</td></tr>
+                <tr><td><code>wrap_coordinate</code></td><td><code>(Scalar, min, max) &rarr; Scalar</code></td><td>トーラス座標ラップ</td></tr>
+                <tr><td><code>wrap_position</code></td><td><code>(Vec2, min, max) &rarr; Vec2</code></td><td>トーラス位置ラップ</td></tr>
+                <tr><td><code>torus_distance</code></td><td><code>(Vec2, Vec2, world_size) &rarr; Scalar</code></td><td>最短トーラス距離</td></tr>
+                <tr><td><code>torus_displacement</code></td><td><code>(Vec2, Vec2, world_size) &rarr; Vec2</code></td><td>最短変位ベクトル</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>設定構造体 (config.hpp) <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/config.hpp#L1" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+
+          <h4>AgentConfig <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/config.hpp#L9" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>フィールド</th><th>型</th><th>デフォルト</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>kappa</code></td><td><code>Scalar</code></td><td>1.0</td><td>Haze感度</td></tr>
+                <tr><td><code>mass</code></td><td><code>Scalar</code></td><td>1.0</td><td>エージェント質量 [kg]</td></tr>
+                <tr><td><code>drag_coeff</code></td><td><code>Scalar</code></td><td>0.1</td><td>抗力係数</td></tr>
+                <tr><td><code>eta</code></td><td><code>Scalar</code></td><td>0.1</td><td>学習率</td></tr>
+                <tr><td><code>tau_haze</code></td><td><code>Scalar</code></td><td>1.0</td><td>Haze時定数 [s]</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>SwarmConfig <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/config.hpp#L18" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>フィールド</th><th>型</th><th>デフォルト</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>n_agents</code></td><td><code>size_t</code></td><td>100</td><td>エージェント数</td></tr>
+                <tr><td><code>beta</code></td><td><code>Scalar</code></td><td>0.098</td><td>MB破壊強度</td></tr>
+                <tr><td><code>dt</code></td><td><code>Scalar</code></td><td>0.1</td><td>タイムステップ [s]</td></tr>
+                <tr><td><code>neighbor_count</code></td><td><code>int</code></td><td>6</td><td>エージェントあたりの近傍数</td></tr>
+                <tr><td><code>use_role_distribution</code></td><td><code>bool</code></td><td>true</td><td>2:6:2 分布</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>SimulationConfig <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_core/include/eph_core/config.hpp#L27" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>フィールド</th><th>型</th><th>デフォルト</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>max_steps</code></td><td><code>int</code></td><td>10000</td><td>最大シミュレーションステップ</td></tr>
+                <tr><td><code>max_time</code></td><td><code>Scalar</code></td><td>1000.0</td><td>最大シミュレーション時間 [s]</td></tr>
+                <tr><td><code>log_interval</code></td><td><code>int</code></td><td>100</td><td>Nステップごとにログ出力</td></tr>
+                <tr><td><code>enable_visualization</code></td><td><code>bool</code></td><td>false</td><td>可視化の有効化</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- ========================
+           3b. eph_spm
+           ======================== -->
+      <details id="mod-spm">
+        <summary>
+          <span class="module-badge badge-layer1">レイヤー 1</span>
+          eph_spm &mdash; Saliency Polar Map
+        </summary>
+        <div class="details-content">
+          <div class="module-meta">
+            <span>パス: <code>packages/eph_spm/include/eph_spm/saliency_polar_map.hpp</code></span>
+            <span>名前空間: <code>eph::spm</code></span>
+            <span>依存関係: <code>eph_core</code></span>
+            <span>使用先: <code>eph_agent</code>, <code>eph_swarm</code>, <code>cpp_server</code></span>
+          </div>
+
+          <h4>クラス: SaliencyPolarMap <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_spm/include/eph_spm/saliency_polar_map.hpp#L24" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <p>内部ストレージ: <code>Tensor3 data_</code> (形状 (10, 12, 12) = (チャネル, &theta;, r))</p>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>constructor</code></td><td><code>SaliencyPolarMap()</code></td><td>10&times;12&times;12テンソルをゼロ初期化</td></tr>
+                <tr><td><code>get_channel</code></td><td><code>(ChannelID) &rarr; Matrix12x12</code></td><td>単一チャネルを行列として取得</td></tr>
+                <tr><td><code>set_channel</code></td><td><code>(ChannelID, Matrix12x12) &rarr; void</code></td><td>単一チャネルの設定</td></tr>
+                <tr><td><code>gradient_theta</code></td><td><code>(ChannelID) &rarr; Matrix12x12</code></td><td>&theta;方向勾配 (周期BC, 中心差分)</td></tr>
+                <tr><td><code>gradient_r</code></td><td><code>(ChannelID) &rarr; Matrix12x12</code></td><td>r方向勾配 (ノイマンBC, 端点でゼロ)</td></tr>
+                <tr><td><code>gradient_magnitude</code></td><td><code>(ChannelID) &rarr; Matrix12x12</code></td><td>&radic;(&part;&theta;&sup2; + &part;r&sup2;)</td></tr>
+                <tr><td><code>zero_all</code></td><td><code>() &rarr; void</code></td><td>全チャネルをゼロにリセット</td></tr>
+                <tr><td><code>channel_count</code></td><td><code>() &rarr; int</code></td><td>10を返す</td></tr>
+                <tr><td><code>theta_count</code></td><td><code>() &rarr; int</code></td><td>12を返す</td></tr>
+                <tr><td><code>r_count</code></td><td><code>() &rarr; int</code></td><td>12を返す</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="note-box">
+            <strong>FOV に関する注意:</strong> 270&deg; FOVでは、ビン &theta;<sub>idx</sub> &isin; [0, 8] がアクティブ (&minus;135&deg; から +135&deg;)。ビン [9, 11] は後方死角に対応し、ゼロに設定されます。
+          </div>
+        </div>
+      </details>
+
+      <!-- ========================
+           3c. eph_agent
+           ======================== -->
+      <details id="mod-agent">
+        <summary>
+          <span class="module-badge badge-layer2">レイヤー 2</span>
+          eph_agent &mdash; エージェント行動 &amp; 行動選択
+        </summary>
+        <div class="details-content">
+          <div class="module-meta">
+            <span>パス: <code>packages/eph_agent/include/eph_agent/</code></span>
+            <span>名前空間: <code>eph::agent</code></span>
+            <span>依存関係: <code>eph_core</code>, <code>eph_spm</code></span>
+          </div>
+
+          <h4>クラス: EPHAgent <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_agent/include/eph_agent/eph_agent.hpp#L20" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <p>内部状態: <code>AgentState state_</code>, <code>Matrix12x12 haze_</code>, <code>HazeEstimator haze_estimator_</code></p>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>constructor</code></td><td><code>(AgentState, Scalar kappa)</code></td><td>状態とHaze感度で初期化</td></tr>
+                <tr><td><code>update</code></td><td><code>(SaliencyPolarMap, Scalar dt) &rarr; void</code></td><td>Phase 4 全体ループ: 行動 &rarr; 状態 &rarr; 誤差 &rarr; haze &rarr; 疲労</td></tr>
+                <tr><td><code>estimate_haze</code></td><td><code>(SaliencyPolarMap, Scalar pred_error) &rarr; Matrix12x12</code></td><td>単体でのHaze推定</td></tr>
+                <tr><td><code>state</code></td><td><code>() &rarr; const AgentState&amp;</code></td><td>現在の状態を取得</td></tr>
+                <tr><td><code>kappa</code></td><td><code>() &rarr; Scalar</code></td><td>Haze感度を取得</td></tr>
+                <tr><td><code>haze</code></td><td><code>() &rarr; const Matrix12x12&amp;</code></td><td>現在のHazeフィールドを取得</td></tr>
+                <tr><td><code>set_effective_haze</code></td><td><code>(Matrix12x12) &rarr; void</code></td><td>MB破壊後のHazeを設定</td></tr>
+                <tr><td><code>reset_haze_estimator</code></td><td><code>() &rarr; void</code></td><td>EMAフィルタをリセット</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>クラス: ActionSelector (static) <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_agent/include/eph_agent/action_selector.hpp#L29" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>select_action</code></td><td><code>(Vec2 vel, Matrix12x12 haze, SPM, Scalar fatigue) &rarr; Vec2</code></td><td>EFE勾配降下法による行動選択</td></tr>
+                <tr><td><code>compute_efe</code></td><td><code>(Vec2, Matrix12x12, SPM, Scalar) &rarr; Scalar</code></td><td>G(v) = &langle;h&rangle;&middot;&langle;|&nabla;SPM|&rangle; + &kappa;(fatigue)&middot;|v|</td></tr>
+                <tr><td><code>compute_efe_gradient</code></td><td><code>(Vec2, Matrix12x12, SPM, Scalar) &rarr; Vec2</code></td><td>中心差分による&nabla;G</td></tr>
+                <tr><td><code>apply_constraints</code></td><td><code>(Vec2, Scalar fatigue) &rarr; Vec2</code></td><td>fatigue&gt;0.8 &rarr; 休止, [V_MIN, V_MAX]にクランプ</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>クラス: HazeEstimator <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_agent/include/eph_agent/haze_estimator.hpp#L18" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <p>内部: <code>Scalar tau_</code>, <code>Matrix12x12 ema_error_</code>, <code>bool initialized_</code></p>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>constructor</code></td><td><code>(Scalar tau=1.0)</code></td><td>EMA時定数</td></tr>
+                <tr><td><code>estimate</code></td><td><code>(SaliencyPolarMap, Scalar pred_error) &rarr; Matrix12x12</code></td><td>h&#771; = &sigma;(a&middot;EMA(e) + b&middot;R1 + c&middot;(1-F4) + d&middot;F5) + blur</td></tr>
+                <tr><td><code>reset</code></td><td><code>() &rarr; void</code></td><td>EMA状態をリセット</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- ========================
+           3d. eph_swarm
+           ======================== -->
+      <details id="mod-swarm">
+        <summary>
+          <span class="module-badge badge-layer3">レイヤー 3</span>
+          eph_swarm &mdash; 群管理 &amp; k-NN
+        </summary>
+        <div class="details-content">
+          <div class="module-meta">
+            <span>パス: <code>packages/eph_swarm/include/eph_swarm/swarm_manager.hpp</code></span>
+            <span>名前空間: <code>eph::swarm</code></span>
+            <span>依存関係: <code>eph_agent</code>, <code>eph_core</code>, <code>nanoflann</code></span>
+          </div>
+
+          <h4>クラス: SwarmManager <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_swarm/include/eph_swarm/swarm_manager.hpp#L68" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <p>内部: <code>vector&lt;unique_ptr&lt;EPHAgent&gt;&gt; agents_</code>, <code>vector&lt;Vec2&gt; positions_</code>, <code>Scalar beta_</code>, <code>int avg_neighbors_</code>, k-dツリー (遅延再構築)</p>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>constructor</code></td><td><code>(size_t n, Scalar beta, int neighbors)</code></td><td>ランダム初期化, seed=42</td></tr>
+                <tr><td><code>set_beta / get_beta</code></td><td><code>(Scalar) / () &rarr; Scalar</code></td><td>MB破壊強度</td></tr>
+                <tr><td><code>update_all_agents</code></td><td><code>(SPM, Scalar dt) &rarr; void</code></td><td>全エージェント更新 + 位置同期 + MB破壊</td></tr>
+                <tr><td><code>update_effective_haze</code></td><td><code>() &rarr; void</code></td><td>h_eff = (1-&beta;)h_i + &beta;&langle;h_j&rangle; (stop-gradient付き)</td></tr>
+                <tr><td><code>find_neighbors</code></td><td><code>(size_t id) &rarr; vector&lt;size_t&gt;</code></td><td>k-dツリーによるk-NN + トーラス距離で再ソート</td></tr>
+                <tr><td><code>get_agent</code></td><td><code>(size_t) &rarr; EPHAgent&amp;</code></td><td>エージェントへのアクセス</td></tr>
+                <tr><td><code>size</code></td><td><code>() &rarr; size_t</code></td><td>エージェント数</td></tr>
+                <tr><td><code>get_all_haze_fields</code></td><td><code>() &rarr; vector&lt;Matrix12x12&gt;</code></td><td>PhaseAnalyzer用</td></tr>
+                <tr><td><code>update_position</code></td><td><code>(size_t, Vec2) &rarr; void</code></td><td>位置更新 + k-dツリー無効化</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="note-box">
+            <strong>PositionAdaptor:</strong> <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_swarm/include/eph_swarm/swarm_manager.hpp#L26" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a> メモリ複製なしで位置ベクトルからk-dツリーを構築するための <code>nanoflann</code> ゼロコピーアダプタ構造体です。
+          </div>
+        </div>
+      </details>
+
+      <!-- ========================
+           3e. eph_phase
+           ======================== -->
+      <details id="mod-phase">
+        <summary>
+          <span class="module-badge badge-layer3">レイヤー 3</span>
+          eph_phase &mdash; 相転移解析
+        </summary>
+        <div class="details-content">
+          <div class="module-meta">
+            <span>パス: <code>packages/eph_phase/include/eph_phase/phase_analyzer.hpp</code></span>
+            <span>名前空間: <code>eph::phase</code></span>
+            <span>依存関係: <code>eph_core</code> (型のみ、それ以外は独立)</span>
+          </div>
+
+          <h4>クラス: PhaseAnalyzer (static) <a href="https://github.com/rash0402/crlEPH2/blob/main/packages/eph_phase/include/eph_phase/phase_analyzer.hpp#L34" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>compute_phi</code></td><td><code>(vector&lt;Matrix12x12&gt;) &rarr; Scalar</code></td><td>&phi; = (1/N)&Sigma;|h_i - h&#772;|</td></tr>
+                <tr><td><code>compute_chi</code></td><td><code>(vector&lt;Scalar&gt;) &rarr; Scalar</code></td><td>&chi; = M(&langle;&phi;&sup2;&rangle; - &langle;&phi;&rangle;&sup2;)</td></tr>
+                <tr><td><code>find_beta_c</code></td><td><code>(vector&lt;Scalar&gt;, vector&lt;Scalar&gt;) &rarr; Scalar</code></td><td>中心差分によるmax(d&phi;/d&beta;)</td></tr>
+                <tr><td><code>export_csv</code></td><td><code>(string, betas, phis, chis) &rarr; bool</code></td><td>相転移データのエクスポート</td></tr>
+                <tr><td><code>mean</code></td><td><code>(vector&lt;Scalar&gt;) &rarr; Scalar</code></td><td>統計的平均</td></tr>
+                <tr><td><code>stddev</code></td><td><code>(vector&lt;Scalar&gt;) &rarr; Scalar</code></td><td>標準偏差</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- ========================
+           3f. cpp_server
+           ======================== -->
+      <details id="mod-server">
+        <summary>
+          <span class="module-badge badge-app">アプリ</span>
+          cpp_server &mdash; UDPサーバー &amp; バイナリプロトコル
+        </summary>
+        <div class="details-content">
+          <div class="module-meta">
+            <span>パス: <code>src/cpp_server/</code></span>
+            <span>名前空間: <code>eph::udp</code></span>
+            <span>依存関係: 全パッケージ + <code>nlohmann/json</code></span>
+          </div>
+
+          <h4>構造体: PacketHeader (24バイト) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/cpp_server/protocol.hpp#L20" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>フィールド</th><th>型</th><th>サイズ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>magic_number</code></td><td><code>uint32_t</code></td><td>4B</td><td>0xEFE20210</td></tr>
+                <tr><td><code>sequence_num</code></td><td><code>uint32_t</code></td><td>4B</td><td>インクリメンタルカウンタ</td></tr>
+                <tr><td><code>timestep</code></td><td><code>uint32_t</code></td><td>4B</td><td>シミュレーションステップ</td></tr>
+                <tr><td><code>num_agents</code></td><td><code>uint32_t</code></td><td>4B</td><td>ペイロード内のエージェント数</td></tr>
+                <tr><td><code>data_length</code></td><td><code>uint32_t</code></td><td>4B</td><td>ペイロードバイト数</td></tr>
+                <tr><td><code>checksum</code></td><td><code>uint32_t</code></td><td>4B</td><td>ペイロードのCRC32</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>構造体: AgentData (32バイト) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/cpp_server/protocol.hpp#L42" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>フィールド</th><th>型</th><th>サイズ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>agent_id</code></td><td><code>uint16_t</code></td><td>2B</td><td>エージェントID</td></tr>
+                <tr><td><code>padding1</code></td><td><code>uint16_t</code></td><td>2B</td><td>アライメント</td></tr>
+                <tr><td><code>x, y</code></td><td><code>float</code></td><td>4B &times; 2</td><td>位置</td></tr>
+                <tr><td><code>vx, vy</code></td><td><code>float</code></td><td>4B &times; 2</td><td>速度</td></tr>
+                <tr><td><code>haze_mean</code></td><td><code>float</code></td><td>4B</td><td>平均Haze</td></tr>
+                <tr><td><code>fatigue</code></td><td><code>float</code></td><td>4B</td><td>疲労 [0,1]</td></tr>
+                <tr><td><code>efe</code></td><td><code>float</code></td><td>4B</td><td>期待自由エネルギー</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>構造体: MetricsData (48バイト) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/cpp_server/protocol.hpp#L59" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>フィールド</th><th>型</th><th>サイズ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>phi</code></td><td><code>double</code></td><td>8B</td><td>秩序パラメータ</td></tr>
+                <tr><td><code>chi</code></td><td><code>double</code></td><td>8B</td><td>磁化率</td></tr>
+                <tr><td><code>beta_current</code></td><td><code>double</code></td><td>8B</td><td>現在の&beta;</td></tr>
+                <tr><td><code>avg_haze</code></td><td><code>double</code></td><td>8B</td><td>平均Haze</td></tr>
+                <tr><td><code>avg_speed</code></td><td><code>double</code></td><td>8B</td><td>平均速度</td></tr>
+                <tr><td><code>avg_fatigue</code></td><td><code>double</code></td><td>8B</td><td>平均疲労</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>構造体: AgentDetailData (608バイト) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/cpp_server/protocol.hpp#L75" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>フィールド</th><th>型</th><th>サイズ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>agent_id</code></td><td><code>uint16_t</code></td><td>2B</td><td>選択されたエージェント</td></tr>
+                <tr><td><code>num_neighbors</code></td><td><code>uint16_t</code></td><td>2B</td><td>有効な近傍数</td></tr>
+                <tr><td><code>spm_data</code></td><td><code>float[144]</code></td><td>576B</td><td>SPM 12&times;12</td></tr>
+                <tr><td><code>velocity_angle</code></td><td><code>float</code></td><td>4B</td><td>進行方向 [rad]</td></tr>
+                <tr><td><code>neighbor_ids</code></td><td><code>uint16_t[6]</code></td><td>12B</td><td>近傍ID</td></tr>
+                <tr><td><code>padding</code></td><td><code>uint16_t[6]</code></td><td>12B</td><td>アライメント</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>クラス: UDPServer <a href="https://github.com/rash0402/crlEPH2/blob/main/src/cpp_server/udp_server.hpp#L23" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>constructor</code></td><td><code>(send_port=5555, recv_port=5556, host="127.0.0.1")</code></td><td>デュアルソケット初期化</td></tr>
+                <tr><td><code>send_state</code></td><td><code>(StatePacket) &rarr; bool</code></td><td>バイナリパケットのシリアライズと送信</td></tr>
+                <tr><td><code>receive_command</code></td><td><code>() &rarr; optional&lt;json&gt;</code></td><td>ノンブロッキングJSON受信</td></tr>
+                <tr><td><code>is_initialized</code></td><td><code>() &rarr; bool</code></td><td>ソケットの状態</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>ヘルパー関数 <a href="https://github.com/rash0402/crlEPH2/blob/main/src/cpp_server/protocol.hpp#L100" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>関数</th><th>シグネチャ</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>calculate_crc32</code></td><td><code>(uint8_t*, size_t) &rarr; uint32_t</code></td><td>CRC32チェックサム</td></tr>
+                <tr><td><code>serialize_state_packet</code></td><td><code>(StatePacket) &rarr; vector&lt;uint8_t&gt;</code></td><td>完全なシリアライズ</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- ========================
+           3g. Python GUI
+           ======================== -->
+      <details id="mod-gui">
+        <summary>
+          <span class="module-badge badge-app">アプリ</span>
+          Python GUI &mdash; PyQt6 可視化
+        </summary>
+        <div class="details-content">
+          <div class="module-meta">
+            <span>パス: <code>src/gui/</code></span>
+            <span>フレームワーク: <code>PyQt6</code> + <code>pyqtgraph</code> + <code>matplotlib</code></span>
+          </div>
+
+          <h4>EPHApplication (main.py) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/gui/main.py#L25" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>__init__()</code></td><td>アプリ、ウィンドウ、UDPClient、QTimer(33ms)の初期化</td></tr>
+                <tr><td><code>update()</code></td><td>約30FPSで呼出: UDP受信 &rarr; GUI更新</td></tr>
+                <tr><td><code>_on_parameters_changed(dict)</code></td><td>UDPClientへ転送</td></tr>
+                <tr><td><code>_on_play/pause/stop()</code></td><td>再生制御コマンド</td></tr>
+                <tr><td><code>run()</code></td><td>QApplicationイベントループ</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>MainWindow (widgets/main_window.py) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/gui/widgets/main_window.py#L20" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <p>レイアウト: 中央=GlobalView, 左ドック=ParameterPanel, 下ドック=AgentDetailPanel, ツールバー=PlaybackToolbar</p>
+          <p>シグナル: <code>parameters_changed</code>, <code>playback_play/pause/stop</code>, <code>playback_speed_changed</code></p>
+
+          <h4>GlobalViewWidget (widgets/global_view.py) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/gui/widgets/global_view.py#L25" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>シグナル / メソッド</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>agent_selected(int)</code></td><td>シグナル: エージェントのクリック選択</td></tr>
+                <tr><td><code>update_agents(list)</code></td><td>散布図 + 速度ベクトルの更新</td></tr>
+                <tr><td><code>set_world_size(w, h)</code></td><td>トーラス次元の調整</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>ParameterPanel (widgets/parameter_panel.py) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/gui/widgets/parameter_panel.py#L16" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>シグナル / メソッド</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>parameters_changed(dict)</code></td><td>シグナル: {beta, eta, n_agents}</td></tr>
+                <tr><td>コントロール</td><td>&beta; スライダー (0.01&ndash;0.20), &eta; スピンボックス, N スピンボックス</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>PlaybackToolbar (widgets/playback_toolbar.py) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/gui/widgets/playback_toolbar.py#L13" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <p>シグナル: <code>play_clicked</code>, <code>pause_clicked</code>, <code>stop_clicked</code>, <code>speed_changed(float)</code></p>
+
+          <h4>AgentDetailPanel (widgets/agent_detail_panel.py) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/gui/widgets/agent_detail_panel.py#L24" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <p>3カラムレイアウト: SPMヒートマップ (12&times;12, viridis) | 極座標プロット (270&deg; FOV, 灰色の死角) | 統計パネル</p>
+
+          <h4>UDPClient (bridge/udp_client.py) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/gui/bridge/udp_client.py#L17" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>メソッド</th><th>説明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>receive_state() &rarr; dict</code></td><td>ノンブロッキングバイナリ受信</td></tr>
+                <tr><td><code>send_command(dict) &rarr; bool</code></td><td>JSONコマンド送信</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>Protocol (bridge/protocol.py) <a href="https://github.com/rash0402/crlEPH2/blob/main/src/gui/bridge/protocol.py#L1" class="source-link" title="GitHubで開く" target="_blank"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></h4>
+          <p>クラス: <code>PacketHeader</code>, <code>AgentData</code>, <code>MetricsData</code>, <code>AgentDetailData</code> (すべて静的 <code>parse(bytes)</code> を持つ)</p>
+          <p>関数: <code>deserialize_state_packet(bytes) &rarr; dict</code></p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============================
+         Section 4: Data Flow
+         ============================ -->
+    <section id="data-flow">
+      <h2><span class="section-num">3</span>データフロー</h2>
+
+      <div class="diagram-container">
+        <div class="diagram-title">通信シーケンス</div>
+        <pre class="mermaid">
+sequenceDiagram
+    participant Sim as C++ Simulation
+    participant Srv as UDPServer
+    participant Cli as UDPClient (Python)
+    participant App as EPHApplication
+    participant Win as MainWindow
+    participant Wid as Widgets
+
+    loop Every 10 steps
+        Sim->>Sim: swarm.update_all_agents(spm, dt)
+        Sim->>Sim: phi = PhaseAnalyzer::compute_phi()
+        Sim->>Srv: serialize_state_packet()
+        Srv->>Cli: UDP 5555 (Binary)
+        Cli->>App: deserialize_state_packet()
+        App->>Win: update_agents(), update_metrics()
+        Win->>Wid: Scatter, StatusBar, DetailPanel
+    end
+
+    Wid->>Win: parameters_changed / play / pause
+    Win->>App: Signal forwarding
+    App->>Cli: send_command(JSON)
+    Cli->>Srv: UDP 5556 (JSON)
+    Srv->>Sim: Apply parameters
+        </pre>
+      </div>
+
+      <h3>パケットサイズ</h3>
+      <p>パケット合計サイズ: <strong>24 + N &times; 32 + 48 バイト</strong></p>
+      <p>N=100 エージェントの場合: 24 + 3200 + 48 = <strong>3,272 バイト</strong> (約10Hz = 約32 KB/s)</p>
+
+      <h3>コマンド種別 (JSON)</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>コマンド</th><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>play</code></td><td><code>{type: "play"}</code></td><td>シミュレーション開始</td></tr>
+            <tr><td><code>pause</code></td><td><code>{type: "pause"}</code></td><td>シミュレーション一時停止</td></tr>
+            <tr><td><code>stop</code></td><td><code>{type: "stop"}</code></td><td>停止とリセット</td></tr>
+            <tr><td><code>set_speed</code></td><td><code>{type: "set_speed", speed: float}</code></td><td>速度倍率</td></tr>
+            <tr><td><code>set_parameters</code></td><td><code>{type: "set_parameters", parameters: {beta, eta, n_agents}}</code></td><td>パラメータ更新</td></tr>
+            <tr><td><code>select_agent</code></td><td><code>{type: "select_agent", agent_id: int}</code></td><td>詳細表示用のエージェント選択</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================
+         Section 5: GUI Architecture
+         ============================ -->
+    <section id="gui-architecture">
+      <h2><span class="section-num">4</span>GUI アーキテクチャ</h2>
+
+      <div class="diagram-container">
+        <div class="diagram-title">シグナル / スロット フロー</div>
+        <pre class="mermaid">
+graph TD
+    subgraph Toolbar
+        PT["PlaybackToolbar"]
+    end
+    subgraph Panels
+        PP["ParameterPanel"]
+        GV["GlobalViewWidget"]
+        DP["AgentDetailPanel"]
+    end
+    subgraph Coordinator
+        MW["MainWindow"]
+    end
+    subgraph Application
+        APP["EPHApplication\nQTimer 33ms"]
+    end
+    subgraph Network
+        UC["UDPClient"]
+    end
+
+    PT -->|"play/pause/stop"| MW
+    PP -->|"parameters_changed"| MW
+    GV -->|"agent_selected"| MW
+    MW -->|"playback signals"| APP
+    MW -->|"parameters_changed"| APP
+    MW -->|"update_detail"| DP
+    APP -->|"send_command"| UC
+    UC -->|"receive_state"| APP
+    APP -->|"update_agents"| GV
+    APP -->|"update_metrics"| MW
+
+    classDef widget fill:#dbeafe,stroke:#0969da,color:#1f2328
+    classDef coordinator fill:#f3e8ff,stroke:#8250df,color:#1f2328
+    classDef appstyle fill:#dcfce7,stroke:#1a7f37,color:#1f2328
+    classDef netstyle fill:#ffedd5,stroke:#bc4c00,color:#1f2328
+
+    class PT,PP,GV,DP widget
+    class MW coordinator
+    class APP appstyle
+    class UC netstyle
+        </pre>
+      </div>
+
+      <h3>ウィンドウレイアウト</h3>
+      <div class="layout-diagram">+---------------------------------------------------------+
+| PlaybackToolbar (Play | Pause | Stop | Speed)           |
++------------+--------------------------------------------+
+| Parameter  |          GlobalViewWidget                   |
+| Panel      |     (Agent scatter + velocity vectors)      |
+| (beta,     |          Toroidal world view                |
+|  eta, N)   |                                             |
++------------+--------------------------------------------+
+| AgentDetailPanel                                         |
+| [Heatmap 12x12] [Polar 270deg FOV] [Stats Panel]       |
++---------------------------------------------------------+
+| StatusBar: Connected | Step: 1000 | FPS: 30 | ...       |
++---------------------------------------------------------+</div>
+    </section>
+
+    <!-- ============================
+         Section 6: Mathematical Reference
+         ============================ -->
+    <section id="math-reference">
+      <h2><span class="section-num">5</span>数式リファレンス</h2>
+
+      <div class="math-block">
+        <div class="math-label">1. 期待自由エネルギー (EFE)</div>
+        <p>$$G(\mathbf{v}) = \langle h \rangle \cdot \langle |\nabla \text{SPM}| \rangle + \kappa(\text{fatigue}) \cdot |\mathbf{v}|$$</p>
+        <p>ここで $\kappa(\text{fatigue}) = 1 + 5 \cdot \text{fatigue}$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-agent">eph_agent / ActionSelector</a></div>
+      </div>
+
+      <div class="math-block">
+        <div class="math-label">2. 勾配降下法</div>
+        <p>$$\mathbf{v}_{\text{new}} = \mathbf{v}_{\text{old}} - \eta \nabla_{\mathbf{v}} G(\mathbf{v})$$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-agent">eph_agent / ActionSelector::select_action</a></div>
+      </div>
+
+      <div class="math-block">
+        <div class="math-label">3. Haze推定</div>
+        <p>$$\tilde{h} = \sigma\left(a \cdot \text{EMA}(e) + b \cdot R_1 + c \cdot (1 - F_4) + d \cdot F_5\right)$$</p>
+        <p>係数: $a=0.4$, $b=0.3$, $c=0.2$, $d=0.1$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-agent">eph_agent / HazeEstimator::estimate</a></div>
+      </div>
+
+      <div class="math-block">
+        <div class="math-label">4. マルコフブランケット (MB) 破壊</div>
+        <p>$$h_{\text{eff},i} = (1 - \beta) h_i + \beta \langle h_j \rangle_{j \in \mathcal{N}_i}$$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-swarm">eph_swarm / SwarmManager::update_effective_haze</a></div>
+      </div>
+
+      <div class="math-block">
+        <div class="math-label">5. 秩序パラメータ</div>
+        <p>$$\phi(\beta) = \frac{1}{N} \sum_{i=1}^{N} |h_i - \bar{h}|$$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-phase">eph_phase / PhaseAnalyzer::compute_phi</a></div>
+      </div>
+
+      <div class="math-block">
+        <div class="math-label">6. 磁化率</div>
+        <p>$$\chi(\beta) = N \left( \langle \phi^2 \rangle - \langle \phi \rangle^2 \right)$$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-phase">eph_phase / PhaseAnalyzer::compute_chi</a></div>
+      </div>
+
+      <div class="math-block">
+        <div class="math-label">7. トーラス距離</div>
+        <p>$$d_{\text{torus}}(\mathbf{a}, \mathbf{b}) = \sqrt{\min(|a_x - b_x|, L - |a_x - b_x|)^2 + \min(|a_y - b_y|, L - |a_y - b_y|)^2}$$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-core">eph_core / math::torus_distance</a></div>
+      </div>
+
+      <div class="math-block">
+        <div class="math-label">8. SPM勾配 (&theta;方向, 周期境界条件)</div>
+        <p>$$\frac{\partial f}{\partial \theta}\bigg|_{i,j} = \frac{f_{(i+1) \bmod 12, j} - f_{(i-1) \bmod 12, j}}{2\Delta\theta}$$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-spm">eph_spm / SaliencyPolarMap::gradient_theta</a></div>
+      </div>
+
+      <div class="math-block">
+        <div class="math-label">9. SPM勾配 (r方向, ノイマン境界条件)</div>
+        <p>$$\frac{\partial f}{\partial r}\bigg|_{i,j} = \begin{cases} 0 & j = 0 \text{ or } j = 11 \\ \frac{f_{i,j+1} - f_{i,j-1}}{2} & \text{otherwise} \end{cases}$$</p>
+        <div class="math-used-in">使用箇所: <a href="#mod-spm">eph_spm / SaliencyPolarMap::gradient_r</a></div>
+      </div>
+    </section>
+
+    <!-- ============================
+         Section 7: Quick Reference
+         ============================ -->
+    <section id="quick-reference">
+      <h2><span class="section-num">6</span>クイックリファレンス</h2>
+
+      <h3>SPMチャネル リファレンス</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>値</th><th>名称</th><th>説明</th><th>使用先</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>T0</code></td><td>0</td><td>Obs Occupancy</td><td>教師のグラウンドトゥルース占有率</td><td><a href="#mod-spm">eph_spm</a>, <a href="#mod-agent">eph_agent</a></td></tr>
+            <tr><td><code>R0</code></td><td>1</td><td>&Delta; Occupancy</td><td>時間経過による占有率の変化</td><td><a href="#mod-spm">eph_spm</a>, <a href="#mod-agent">eph_agent</a></td></tr>
+            <tr><td><code>R1</code></td><td>2</td><td>Uncertainty</td><td>認識的不確実性 (Haze推定で使用)</td><td><a href="#mod-agent">eph_agent (HazeEstimator)</a></td></tr>
+            <tr><td><code>F0</code></td><td>3</td><td>Occupancy</td><td>現在の検知占有率</td><td><a href="#mod-spm">eph_spm</a>, <a href="#mod-agent">eph_agent</a></td></tr>
+            <tr><td><code>F1</code></td><td>4</td><td>Motion Pressure</td><td>運動フローフィールドの大きさ</td><td><a href="#mod-agent">eph_agent (ActionSelector)</a></td></tr>
+            <tr><td><code>F2</code></td><td>5</td><td>Saliency</td><td>注意のためのボトムアップ顕著性</td><td><a href="#mod-agent">eph_agent (ActionSelector)</a></td></tr>
+            <tr><td><code>F3</code></td><td>6</td><td>TTC Proxy</td><td>衝突時間の近似フィールド</td><td><a href="#mod-agent">eph_agent (ActionSelector)</a></td></tr>
+            <tr><td><code>F4</code></td><td>7</td><td>Visibility</td><td>可視性フィールド (Haze推定で使用)</td><td><a href="#mod-agent">eph_agent (HazeEstimator)</a></td></tr>
+            <tr><td><code>F5</code></td><td>8</td><td>Obs Stability</td><td>観測安定性 (Haze推定で使用)</td><td><a href="#mod-agent">eph_agent (HazeEstimator)</a></td></tr>
+            <tr><td><code>M0</code></td><td>9</td><td>Haze Field</td><td>計算されたHazeフィールド出力</td><td><a href="#mod-swarm">eph_swarm</a>, <a href="#mod-phase">eph_phase</a>, <a href="#mod-server">cpp_server</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>定数クイックリファレンス</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>定数</th><th>値</th><th>単位</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>N_CHANNELS</code></td><td>10</td><td>&mdash;</td><td>SPMチャネル数</td></tr>
+            <tr><td><code>N_THETA</code></td><td>12</td><td>&mdash;</td><td>角度ビン数 (30&deg;/ビン)</td></tr>
+            <tr><td><code>N_R</code></td><td>12</td><td>&mdash;</td><td>半径ビン数</td></tr>
+            <tr><td><code>FOV</code></td><td>270&deg;</td><td>deg</td><td>前方視野</td></tr>
+            <tr><td><code>BETA_C_TYPICAL</code></td><td>0.098</td><td>&mdash;</td><td>理論的臨界点</td></tr>
+            <tr><td><code>HAZE_COEFF_A</code></td><td>0.4</td><td>&mdash;</td><td>予測誤差の重み</td></tr>
+            <tr><td><code>HAZE_COEFF_B</code></td><td>0.3</td><td>&mdash;</td><td>不確実性の重み</td></tr>
+            <tr><td><code>HAZE_COEFF_C</code></td><td>0.2</td><td>&mdash;</td><td>不可視性の重み</td></tr>
+            <tr><td><code>HAZE_COEFF_D</code></td><td>0.1</td><td>&mdash;</td><td>観測不安定性の重み</td></tr>
+            <tr><td><code>V_MIN</code></td><td>0.1</td><td>m/s</td><td>最小速度</td></tr>
+            <tr><td><code>V_MAX</code></td><td>2.0</td><td>m/s</td><td>最大速度</td></tr>
+            <tr><td><code>LEARNING_RATE</code></td><td>0.8</td><td>&mdash;</td><td>勾配降下法 &eta;</td></tr>
+            <tr><td><code>FATIGUE_RATE</code></td><td>0.02</td><td>1/s</td><td>疲労蓄積率</td></tr>
+            <tr><td><code>RECOVERY_RATE</code></td><td>0.01</td><td>1/s</td><td>疲労回復率</td></tr>
+            <tr><td><code>WORLD_MIN / WORLD_MAX</code></td><td>&plusmn;10</td><td>m</td><td>トロイダル世界の境界</td></tr>
+            <tr><td><code>WORLD_SIZE</code></td><td>20.0</td><td>m</td><td>世界のサイズ</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>バイナリプロトコル概要</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>コンポーネント</th><th>サイズ</th><th>個数</th><th>合計</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>PacketHeader</td><td>24 B</td><td>1</td><td>24 B</td></tr>
+            <tr><td>AgentData</td><td>32 B</td><td>N</td><td>32N B</td></tr>
+            <tr><td>MetricsData</td><td>48 B</td><td>1</td><td>48 B</td></tr>
+            <tr><td>AgentDetailData</td><td>608 B</td><td>0 または 1</td><td>0 または 608 B</td></tr>
+            <tr><td colspan="3"><strong>合計 (N=100, 詳細なし)</strong></td><td><strong>3,272 B</strong></td></tr>
+            <tr><td colspan="3"><strong>合計 (N=100, 詳細あり)</strong></td><td><strong>3,880 B</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>主要方程式クイックルックアップ</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>方程式</th><th>記号</th><th>モジュール</th><th>セクション</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>期待自由エネルギー</td><td>$G(\mathbf{v})$</td><td><a href="#mod-agent">eph_agent</a></td><td><a href="#math-reference">数式 #1</a></td></tr>
+            <tr><td>勾配降下法</td><td>$\mathbf{v}_\text{new}$</td><td><a href="#mod-agent">eph_agent</a></td><td><a href="#math-reference">数式 #2</a></td></tr>
+            <tr><td>Haze推定</td><td>$\tilde{h}$</td><td><a href="#mod-agent">eph_agent</a></td><td><a href="#math-reference">数式 #3</a></td></tr>
+            <tr><td>MB破壊</td><td>$h_{\text{eff}}$</td><td><a href="#mod-swarm">eph_swarm</a></td><td><a href="#math-reference">数式 #4</a></td></tr>
+            <tr><td>秩序パラメータ</td><td>$\phi(\beta)$</td><td><a href="#mod-phase">eph_phase</a></td><td><a href="#math-reference">数式 #5</a></td></tr>
+            <tr><td>磁化率</td><td>$\chi(\beta)$</td><td><a href="#mod-phase">eph_phase</a></td><td><a href="#math-reference">数式 #6</a></td></tr>
+            <tr><td>トーラス距離</td><td>$d_\text{torus}$</td><td><a href="#mod-core">eph_core</a></td><td><a href="#math-reference">数式 #7</a></td></tr>
+            <tr><td>SPM勾配 (&theta;)</td><td>$\partial f / \partial \theta$</td><td><a href="#mod-spm">eph_spm</a></td><td><a href="#math-reference">数式 #8</a></td></tr>
+            <tr><td>SPM勾配 (r)</td><td>$\partial f / \partial r$</td><td><a href="#mod-spm">eph_spm</a></td><td><a href="#math-reference">数式 #9</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div><!-- /.content-container -->
+</main>
+
+<!-- ==============================
+     JavaScript
+     ============================== -->
+<script>
+(function() {
+  'use strict';
+
+  // ==========================================
+  // 1. Mermaid Initialization
+  // ==========================================
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    themeVariables: {
+      primaryColor: '#1a2332',
+      primaryTextColor: '#c9d1d9',
+      primaryBorderColor: '#58a6ff',
+      lineColor: '#58a6ff',
+      secondaryColor: '#161b22',
+      tertiaryColor: '#21262d',
+      noteBkgColor: '#161b22',
+      noteTextColor: '#c9d1d9',
+      noteBorderColor: '#30363d',
+      actorBkg: '#1a2332',
+      actorBorder: '#58a6ff',
+      actorTextColor: '#c9d1d9',
+      actorLineColor: '#58a6ff',
+      signalColor: '#c9d1d9',
+      signalTextColor: '#c9d1d9',
+      labelBoxBkgColor: '#161b22',
+      labelBoxBorderColor: '#30363d',
+      labelTextColor: '#c9d1d9',
+      loopTextColor: '#8b949e',
+      activationBorderColor: '#58a6ff',
+      activationBkgColor: '#1a2332',
+      sequenceNumberColor: '#0d1117'
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: false,
+      curve: 'basis'
+    },
+    sequence: {
+      useMaxWidth: true,
+      actorMargin: 60,
+      messageMargin: 40,
+      mirrorActors: false,
+      bottomMarginAdj: 10
+    },
+    securityLevel: 'loose'
+  });
+
+  // ==========================================
+  // 2. KaTeX Auto-Render
+  // ==========================================
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof renderMathInElement === 'function') {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false }
+        ],
+        throwOnError: false,
+        trust: true
+      });
+    }
+  });
+
+  // ==========================================
+  // 3. Search Filter
+  // ==========================================
+  var searchInput = document.getElementById('searchInput');
+  var allSections = document.querySelectorAll('section');
+  var allDetails = document.querySelectorAll('details');
+
+  function performSearch(query) {
+    var q = query.toLowerCase().trim();
+
+    if (q === '') {
+      // Show everything
+      allSections.forEach(function(sec) {
+        sec.classList.remove('hidden');
+      });
+      allDetails.forEach(function(det) {
+        det.classList.remove('hidden');
+      });
+      return;
+    }
+
+    // Filter sections
+    allSections.forEach(function(sec) {
+      var text = sec.textContent.toLowerCase();
+      if (text.indexOf(q) !== -1) {
+        sec.classList.remove('hidden');
+      } else {
+        sec.classList.add('hidden');
+      }
+    });
+
+    // Filter details within visible sections
+    allDetails.forEach(function(det) {
+      var text = det.textContent.toLowerCase();
+      if (text.indexOf(q) !== -1) {
+        det.classList.remove('hidden');
+        det.open = true;
+        // Ensure parent section is visible
+        var parentSection = det.closest('section');
+        if (parentSection) {
+          parentSection.classList.remove('hidden');
+        }
+      } else {
+        det.classList.remove('hidden');
+      }
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('keyup', function(e) {
+      performSearch(e.target.value);
+    });
+
+    searchInput.addEventListener('search', function(e) {
+      performSearch(e.target.value);
+    });
+  }
+
+  // Keyboard shortcut: "/" focuses search
+  document.addEventListener('keydown', function(e) {
+    if (e.key === '/' && document.activeElement !== searchInput) {
+      var tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+      if (tag !== 'input' && tag !== 'textarea') {
+        e.preventDefault();
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+      }
+    }
+    // Escape blurs search
+    if (e.key === 'Escape' && document.activeElement === searchInput) {
+      searchInput.blur();
+      searchInput.value = '';
+      performSearch('');
+    }
+  });
+
+  // ==========================================
+  // 4. Active Section Highlight (IntersectionObserver)
+  // ==========================================
+  var navLinks = document.querySelectorAll('.sidebar-nav a[data-section]');
+  var observerTargets = [];
+
+  // Collect all observable targets
+  navLinks.forEach(function(link) {
+    var sectionId = link.getAttribute('data-section');
+    var target = document.getElementById(sectionId);
+    if (target) {
+      observerTargets.push({ id: sectionId, element: target, link: link });
+    }
+  });
+
+  if ('IntersectionObserver' in window && observerTargets.length > 0) {
+    var currentActive = null;
+
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var id = entry.target.id;
+          if (currentActive) {
+            currentActive.classList.remove('active');
+          }
+          // Find matching nav link
+          var matchingLink = document.querySelector('.sidebar-nav a[data-section="' + id + '"]');
+          if (matchingLink) {
+            matchingLink.classList.add('active');
+            currentActive = matchingLink;
+          }
+        }
+      });
+    }, {
+      rootMargin: '-10% 0px -80% 0px',
+      threshold: 0
+    });
+
+    observerTargets.forEach(function(item) {
+      observer.observe(item.element);
+    });
+  }
+
+  // ==========================================
+  // 5. Smooth Scroll to Anchors
+  // ==========================================
+  document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      var href = this.getAttribute('href');
+      if (href && href.length > 1) {
+        var target = document.getElementById(href.substring(1));
+        if (target) {
+          e.preventDefault();
+
+          // If target is inside a <details>, open it
+          var parentDetails = target.closest('details');
+          if (parentDetails) {
+            parentDetails.open = true;
+          }
+          // If the target IS a <details>, open it
+          if (target.tagName === 'DETAILS') {
+            target.open = true;
+          }
+
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+          // Update URL without jump
+          history.pushState(null, null, href);
+
+          // Close mobile menu if open
+          var sidebar = document.getElementById('sidebar');
+          if (sidebar) {
+            sidebar.classList.remove('open');
+          }
+        }
+      }
+    });
+  });
+
+  // ==========================================
+  // 6. Mobile Menu Toggle
+  // ==========================================
+  var mobileToggle = document.getElementById('mobileMenuToggle');
+  var sidebar = document.getElementById('sidebar');
+
+  if (mobileToggle && sidebar) {
+    mobileToggle.addEventListener('click', function() {
+      sidebar.classList.toggle('open');
+    });
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(e) {
+      if (window.innerWidth <= 768) {
+        if (!sidebar.contains(e.target) && e.target !== mobileToggle) {
+          sidebar.classList.remove('open');
+        }
+      }
+    });
+  }
+
+  // ==========================================
+  // 7. Handle URL Hash on Load
+  // ==========================================
+  window.addEventListener('load', function() {
+    var hash = window.location.hash;
+    if (hash && hash.length > 1) {
+      var target = document.getElementById(hash.substring(1));
+      if (target) {
+        // Open parent details if needed
+        var parentDetails = target.closest('details');
+        if (parentDetails) {
+          parentDetails.open = true;
+        }
+        if (target.tagName === 'DETAILS') {
+          target.open = true;
+        }
+        setTimeout(function() {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+      }
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
